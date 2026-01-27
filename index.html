@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>League Management System V6</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --primary: #3b82f6;
+            --accent: #f43f5e;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: 1px solid rgba(255,255,255,0.1);
+            
+            /* Ranks & VFX */
+            --rank-s: #fbbf24; /* Yellow/Gold */
+            --rank-a: #a855f7; /* Purple */
+            --rank-b: #06b6d4; /* Cyan */
+            --rank-c: #64748b; /* Gray */
+            
+            --money: #22c55e;
+        }
+
+        * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+        body { margin: 0; background: var(--bg-dark); color: var(--text); overflow-x: hidden; }
+
+        /* --- Header & Nav --- */
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 2rem; background: rgba(15, 23, 42, 0.95);
+            border-bottom: var(--border); position: sticky; top: 0; z-index: 100;
+        }
+        .logo { font-weight: 800; font-size: 1.5rem; letter-spacing: -1px; color: var(--primary); text-transform: uppercase; }
+        
+        nav { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
+        .nav-btn {
+            background: transparent; border: none; color: var(--text-muted);
+            padding: 0.75rem 1.2rem; cursor: pointer; font-weight: 600;
+            transition: 0.3s; white-space: nowrap; border-radius: 6px;
+        }
+        .nav-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .nav-btn.active { color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+        
+        .admin-btn { background: var(--accent); color: white; padding: 0.5rem 1rem; border-radius: 6px; border:none; cursor: pointer; }
+        
+        /* --- Layout --- */
+        .container { padding: 2rem; max-width: 1400px; margin: 0 auto; }
+        .section { display: none; animation: fadeIn 0.4s ease; }
+        .section.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Components --- */
+        .card { background: var(--bg-panel); border: var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid rgba(59,130,246,0.2); padding-bottom: 0.5rem; display: inline-block; }
+        h3 { margin-top: 0; color: var(--text); }
+        
+        input, select, button { outline: none; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; color: var(--text-muted); margin-bottom: 0.4rem; font-size: 0.9rem; }
+        .form-control {
+            width: 100%; background: #0f172a; border: var(--border);
+            color: white; padding: 0.8rem; border-radius: 6px;
+        }
+        .btn {
+            padding: 0.8rem 1.5rem; border-radius: 6px; border: none;
+            font-weight: 700; cursor: pointer; transition: 0.2s;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--accent); color: white; }
+        .btn-success { background: var(--money); color: #0f172a; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-outline.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* --- Tables --- */
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 1rem; text-align: left; border-bottom: var(--border); }
+        th { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* --- VFX & Ranks --- */
+        .rank-row-1 { color: var(--rank-s); text-shadow: 0 0 10px rgba(251, 191, 36, 0.3); font-weight: 800; }
+        .rank-row-2 { color: #e2e8f0; font-weight: 700; }
+        .rank-row-3 { color: #f43f5e; font-weight: 600; }
+
+        .rank-badge-s { color: var(--rank-s); border: 1px solid var(--rank-s); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 8px; box-shadow: 0 0 5px var(--rank-s); }
+        .rank-badge-a { color: var(--rank-a); border: 1px solid var(--rank-a); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 8px; }
+        .rank-badge-b { color: var(--rank-b); border: 1px solid var(--rank-b); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 8px; }
+        .rank-badge-c { color: var(--rank-c); border: 1px solid var(--rank-c); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 8px; }
+
+        .money-val { color: var(--money); font-family: monospace; font-size: 1.1rem; }
+
+        /* --- Grid Layouts --- */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; text-align: center; }
+
+        .stat-box {
+            background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-val { font-size: 1.4rem; font-weight: 800; }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+            display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal { background: var(--bg-panel); padding: 2rem; border-radius: 12px; width: 90%; max-width: 600px; border: var(--border); max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+
+        /* --- Specific: Fixtures --- */
+        .match-card {
+            background: rgba(255,255,255,0.03); border-radius: 8px; padding: 1rem;
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;
+            border: 1px solid transparent; transition: 0.2s;
+        }
+        .match-card:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); }
+        .score-display { font-size: 1.5rem; font-family: monospace; color: var(--primary); margin: 0 1rem; font-weight: bold; }
+        
+        /* --- Logs --- */
+        .log-entry { font-family: monospace; padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+        .log-date { color: var(--text-muted); margin-right: 1rem; }
+
+        .clickable-player { cursor: pointer; transition: 0.2s; }
+        .clickable-player:hover { color: var(--primary) !important; text-decoration: underline; }
+
+        /* Hide Admin elements by default */
+        .admin-only { display: none !important; }
+        body.is-admin .admin-only { display: block !important; }
+        body.is-admin .admin-inline { display: inline-block !important; }
+        
+        .edit-btn { 
+            color: var(--text-muted); cursor: pointer; margin-left: 10px; font-size: 0.9rem; 
+            display: none; /* Hidden by default */
+        }
+        .edit-btn:hover { color: var(--primary); }
+        body.is-admin .edit-btn { display: inline-block; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">BlueLock<span style="color:white">Sys</span></div>
+    <div class="user-info" id="userInfoDisplay">Guest Mode</div>
+    <button class="admin-btn" onclick="toggleAuthModal()" id="authBtn">Admin Login</button>
+</header>
+
+<nav>
+    <button class="nav-btn active" onclick="switchTab('tab-guide')">GUIDE</button>
+    <button class="nav-btn" onclick="switchTab('tab-registry')">REGISTRY</button>
+    <button class="nav-btn" onclick="switchTab('tab-fixtures')">FIXTURES</button>
+    <button class="nav-btn" onclick="switchTab('tab-results')">RESULTS</button>
+    <button class="nav-btn" onclick="switchTab('tab-team-lb')">TEAM LB</button>
+    <button class="nav-btn" onclick="switchTab('tab-player-lb')">PLAYER LB</button>
+    <button class="nav-btn admin-only" onclick="switchTab('tab-logs')">LOGS</button>
+    <button class="nav-btn admin-only" onclick="switchTab('tab-others')">OTHERS</button>
+</nav>
+
+<div class="container">
+
+    <div id="tab-guide" class="section active">
+        <div class="card">
+            <h2>System Guide</h2>
+            <ul style="line-height: 2; color: var(--text-muted); list-style: none; padding-left: 0;">
+                <li><i class="fas fa-users" style="color:var(--primary); width:25px;"></i> <strong>REGISTRY:</strong> Register/Edit Teams and Players. (Admin Only)</li>
+                <li><i class="fas fa-calendar" style="color:var(--primary); width:25px;"></i> <strong>FIXTURES:</strong> Create matchdays. Admins can add matches freely.</li>
+                <li><i class="fas fa-poll" style="color:var(--primary); width:25px;"></i> <strong>RESULTS:</strong> Enter detailed stats. Click "View Details" on completed matches to see stats.</li>
+                <li><i class="fas fa-trophy" style="color:var(--primary); width:25px;"></i> <strong>LEADERBOARDS:</strong> Auto-calculated rankings with S/A/B Ranks.</li>
+                <li><i class="fas fa-cog" style="color:var(--primary); width:25px;"></i> <strong>LOGS:</strong> Audit trail of all admin actions.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="tab-registry" class="section">
+        <div class="grid-2 admin-only">
+            <div class="card">
+                <h3>New Team</h3>
+                <div class="input-group">
+                    <label>Team Name</label>
+                    <input type="text" id="regTeamName" class="form-control" placeholder="e.g. Bastard Munchen">
+                </div>
+                <div class="input-group">
+                    <label>Team Color</label>
+                    <input type="color" id="regTeamColor" class="form-control" value="#ff0000" style="height:50px">
+                </div>
+                <button class="btn btn-primary" onclick="registerTeam()">Create Team</button>
+            </div>
+            <div class="card">
+                <h3>New Player</h3>
+                <div class="input-group">
+                    <label>Player Name</label>
+                    <input type="text" id="regPlayerName" class="form-control" placeholder="e.g. Isagi Yoichi">
+                </div>
+                <div class="input-group">
+                    <label>Assign Team</label>
+                    <select id="regPlayerTeam" class="form-control"></select>
+                </div>
+                <button class="btn btn-primary" onclick="registerPlayer()">Register Player</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Registered Squads</h3>
+            <div id="registryList" class="grid-3"></div>
+        </div>
+    </div>
+
+    <div id="tab-fixtures" class="section">
+        <div class="card admin-only">
+            <h3>Create Matchday</h3>
+            <div class="input-group">
+                <input type="text" id="fixMatchday" class="form-control" placeholder="e.g. Week 1">
+            </div>
+            <button class="btn btn-primary" onclick="createMatchday()">Create Matchday</button>
+        </div>
+
+        <div id="fixturesList"></div>
+    </div>
+
+    <div id="tab-results" class="section">
+        <div class="card">
+            <h3>Pending Results</h3>
+            <div id="pendingResultsList"></div>
+        </div>
+        <div class="card">
+            <h3>Completed Matches</h3>
+            <div id="completedResultsList"></div>
+        </div>
+    </div>
+
+    <div id="tab-team-lb" class="section">
+        <div class="card">
+            <h2>Team Standings</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Team</th>
+                        <th>P</th>
+                        <th>W</th>
+                        <th>D</th>
+                        <th>L</th>
+                        <th>GF</th>
+                        <th>GA</th>
+                        <th>GD</th>
+                        <th>PTS</th>
+                    </tr>
+                </thead>
+                <tbody id="teamLbBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-player-lb" class="section">
+        <div class="card">
+            <div style="display:flex; gap:1rem; margin-bottom:1rem;">
+                <button class="btn btn-outline active" id="plb-btn-value" onclick="renderPlayerLb('value')">Most Valuable</button>
+                <button class="btn btn-outline" id="plb-btn-goals" onclick="renderPlayerLb('goals')">Top Scorer</button>
+                <button class="btn btn-outline" id="plb-btn-assists" onclick="renderPlayerLb('assists')">Top Assist</button>
+                <button class="btn btn-outline" id="plb-btn-saves" onclick="renderPlayerLb('saves')">Top Saves</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Player</th>
+                        <th>Team</th>
+                        <th>Stats (G/A/S)</th>
+                        <th>Awards</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody id="playerLbBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-logs" class="section">
+        <div class="card">
+            <h2>System Logs</h2>
+            <div id="logsContainer" style="max-height: 500px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <div id="tab-others" class="section">
+        <div class="card">
+            <h3>Economy Settings</h3>
+            <div class="grid-3">
+                <div class="input-group">
+                    <label>Value per Goal ($)</label>
+                    <input type="number" id="confGoalVal" class="form-control" value="1000000">
+                </div>
+                <div class="input-group">
+                    <label>Value per Assist ($)</label>
+                    <input type="number" id="confAssistVal" class="form-control" value="500000">
+                </div>
+                <div class="input-group">
+                    <label>Value per Save ($)</label>
+                    <input type="number" id="confSaveVal" class="form-control" value="250000">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveConfig()">Update Values</button>
+        </div>
+        
+        <div class="card" style="border-color: var(--accent);">
+            <h3>Danger Zone</h3>
+            <div class="grid-2">
+                <button class="btn btn-danger" onclick="clearLogs()">Clear Logs (Password Required)</button>
+                <button class="btn btn-danger" onclick="factoryReset()">FACTORY RESET</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="authModal" class="modal-overlay">
+    <div class="modal" style="text-align: center;">
+        <h2>Admin Access</h2>
+        <input type="email" id="adminEmail" class="form-control" placeholder="Email" style="margin-bottom:1rem;">
+        <input type="password" id="adminPass" class="form-control" placeholder="Password" style="margin-bottom:1rem;">
+        <button class="btn btn-primary" onclick="handleLogin()">Login</button>
+        <button class="btn" onclick="toggleAuthModal()">Cancel</button>
+    </div>
+</div>
+
+<div id="addMatchModal" class="modal-overlay">
+    <div class="modal">
+        <h2>Add Match</h2>
+        <input type="hidden" id="targetMatchdayId">
+        <div class="grid-3">
+            <select id="fixTeamA" class="form-control"></select>
+            <div style="text-align:center; padding-top:0.5rem;">VS</div>
+            <select id="fixTeamB" class="form-control"></select>
+        </div>
+        <button class="btn btn-success" style="margin-top:1rem; width:100%" onclick="submitNewMatch()">Add Match</button>
+        <button class="btn btn-danger" style="margin-top:0.5rem; width:100%" onclick="document.getElementById('addMatchModal').style.display='none'">Cancel</button>
+    </div>
+</div>
+
+<div id="editModal" class="modal-overlay">
+    <div class="modal">
+        <h2>Edit Details</h2>
+        <input type="hidden" id="editId">
+        <input type="hidden" id="editType">
+        
+        <div class="input-group">
+            <label>Name</label>
+            <input type="text" id="editName" class="form-control">
+        </div>
+        
+        <div id="editTeamExtra" style="display:none;">
+            <div class="input-group">
+                <label>Transfer To Team</label>
+                <select id="editPlayerTeamSelect" class="form-control"></select>
+            </div>
+        </div>
+
+        <button class="btn btn-success" onclick="saveEdit()">Save Changes</button>
+        <button class="btn btn-danger" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
+    </div>
+</div>
+
+<div id="resultModal" class="modal-overlay">
+    <div class="modal" style="width: 95%; max-width: 900px;">
+        <h2>Enter Match Result</h2>
+        <h3 id="resMatchTitle" style="text-align: center; color:var(--text-muted)"></h3>
+        
+        <div class="grid-2">
+            <div id="resTeamAContainer"></div>
+            <div id="resTeamBContainer"></div>
+        </div>
+
+        <div class="grid-2" style="margin-top:2rem; border-top:1px solid #333; padding-top:1rem;">
+            <div class="input-group">
+                <label>MOTM (Man of the Match)</label>
+                <select id="resMOTM" class="form-control"></select>
+            </div>
+            <div class="input-group">
+                <label>MVP (Highest Value)</label>
+                <select id="resMVP" class="form-control"></select>
+            </div>
+        </div>
+
+        <div style="margin-top:1rem; text-align: right;">
+            <button class="btn btn-danger" onclick="closeResultModal()">Cancel</button>
+            <button class="btn btn-success" onclick="submitMatchResult()">Finish Match</button>
+        </div>
+    </div>
+</div>
+
+<div id="matchDetailsModal" class="modal-overlay">
+    <div class="modal" style="width: 95%; max-width: 800px;">
+        <h2 id="mdTitle" style="display:block; text-align:center; margin-bottom:0.5rem;"></h2>
+        <div id="mdScore" class="score-display" style="text-align:center; display:block; margin-bottom:0.5rem;"></div>
+        <div id="mdFouls" style="text-align:center; color:var(--text-muted); margin-bottom:2rem;"></div>
+        
+        <div class="grid-2">
+            <div id="mdTeamA"></div>
+            <div id="mdTeamB"></div>
+        </div>
+        
+        <div id="mdAwards" style="margin-top:2rem; text-align:center; border-top:1px solid #333; padding-top:1rem;"></div>
+        
+        <button class="btn" style="margin-top:1.5rem; width:100%; background: #333" onclick="document.getElementById('matchDetailsModal').style.display='none'">Close</button>
+    </div>
+</div>
+
+<div id="profileModal" class="modal-overlay">
+    <div class="modal">
+        <div id="profileContent"></div>
+        <button class="btn" style="margin-top:1.5rem; width:100%; background: #333" onclick="document.getElementById('profileModal').style.display='none'">Close</button>
+    </div>
+</div>
+
+<script>
+    // --- FIREBASE CONFIGURATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyALXt6_YM9ZzDeJocLGpZJCIxrzSgsQkD0",
+      authDomain: "myleaguemanagement-de7a2.firebaseapp.com",
+      databaseURL: "https://myleaguemanagement-de7a2-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "myleaguemanagement-de7a2",
+      storageBucket: "myleaguemanagement-de7a2.firebasestorage.app",
+      messagingSenderId: "578177851719",
+      appId: "1:578177851719:web:1cdaa4de47ae61736b6c62"
+    };
+
+    // Initialize Firebase
+    try {
+        firebase.initializeApp(firebaseConfig);
+    } catch(e) {
+        console.error("Firebase Error:", e);
+    }
+    const auth = firebase.auth();
+    const database = firebase.database();
+
+    // --- STATE MANAGEMENT ---
+    let appData = {
+        teams: [],
+        players: [],
+        fixtures: [],
+        logs: [],
+        config: {
+            goalVal: 1000000,
+            assistVal: 500000,
+            saveVal: 250000
+        }
+    };
+    let currentUser = null;
+    let currentMatchId = null;
+
+    // --- INITIALIZATION ---
+    window.onload = function() {
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            if(user) {
+                document.body.classList.add('is-admin');
+                document.getElementById('authBtn').innerText = "Logout";
+                document.getElementById('userInfoDisplay').innerText = user.email;
+            } else {
+                document.body.classList.remove('is-admin');
+                document.getElementById('authBtn').innerText = "Admin Login";
+                document.getElementById('userInfoDisplay').innerText = "Guest Mode";
+            }
+            loadData();
+        });
+    };
+
+    function loadData() {
+        database.ref('/').once('value', (snapshot) => {
+            const data = snapshot.val();
+            if(data) {
+                appData = { ...appData, ...data };
+                if(!appData.teams) appData.teams = [];
+                if(!appData.players) appData.players = [];
+                if(!appData.fixtures) appData.fixtures = [];
+                if(!appData.logs) appData.logs = [];
+                if(!appData.config) appData.config = { goalVal: 1000000, assistVal: 500000, saveVal: 250000 };
+                
+                document.getElementById('confGoalVal').value = appData.config.goalVal;
+                document.getElementById('confAssistVal').value = appData.config.assistVal;
+                document.getElementById('confSaveVal').value = appData.config.saveVal;
+            }
+            refreshAllViews();
+        });
+    }
+
+    function saveData() {
+        database.ref('/').set(appData)
+            .then(() => {
+                console.log("Data saved successfully.");
+                refreshAllViews();
+            })
+            .catch((error) => {
+                console.error("Save failed: ", error);
+                alert("ERROR SAVING DATA: " + error.message + "\n\nCheck your Firebase Database Rules.");
+            });
+    }
+
+    function logAction(action) {
+        if(!currentUser) return;
+        const email = currentUser.email;
+        const maskedEmail = email.substring(0,3) + "****" + email.substring(email.indexOf('@'));
+        const entry = {
+            user: maskedEmail,
+            action: action,
+            timestamp: new Date().toLocaleString()
+        };
+        appData.logs.push(entry);
+        saveData();
+    }
+
+    function refreshAllViews() {
+        renderRegistry();
+        renderFixtures();
+        renderResults();
+        renderTeamLb();
+        renderPlayerLb(document.querySelector('.btn-outline.active').id.replace('plb-btn-', ''));
+        renderLogs();
+    }
+
+    // --- TABS UI ---
+    window.switchTab = function(tabId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    window.toggleAuthModal = function() {
+        if(currentUser) {
+            auth.signOut();
+        } else {
+            const modal = document.getElementById('authModal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+        }
+    }
+
+    window.handleLogin = function() {
+        const e = document.getElementById('adminEmail').value;
+        const p = document.getElementById('adminPass').value;
+        auth.signInWithEmailAndPassword(e, p)
+            .then(() => {
+                document.getElementById('authModal').style.display = 'none';
+                alert('Admin Logged In');
+            })
+            .catch(err => alert("Error: " + err.message));
+    }
+
+    // --- REGISTRY ---
+    window.registerTeam = function() {
+        const name = document.getElementById('regTeamName').value;
+        const color = document.getElementById('regTeamColor').value;
+        if(!name) return alert("Enter team name");
+        
+        const newTeam = { id: Date.now(), name, color };
+        appData.teams.push(newTeam);
+        logAction(`Registered Team: ${name}`);
+        saveData();
+        document.getElementById('regTeamName').value = '';
+    }
+
+    window.registerPlayer = function() {
+        const name = document.getElementById('regPlayerName').value;
+        const teamId = document.getElementById('regPlayerTeam').value;
+        if(!name || !teamId) return alert("Enter details");
+
+        const newPlayer = { 
+            id: Date.now(), 
+            name, 
+            teamId,
+            transfers: [],
+            history: [],
+            stats: { g:0, a:0, s:0, legs:0, value:0, awards:0 } 
+        };
+        appData.players.push(newPlayer);
+        logAction(`Registered Player: ${name}`);
+        
+        const prevSelection = teamId;
+        saveData();
+        
+        setTimeout(() => {
+            document.getElementById('regPlayerName').value = '';
+            document.getElementById('regPlayerTeam').value = prevSelection;
+        }, 100);
+    }
+
+    function renderRegistry() {
+        const teamSelect = document.getElementById('regPlayerTeam');
+        const currentVal = teamSelect.value;
+        
+        teamSelect.innerHTML = '<option value="">Select Team</option>';
+        appData.teams.forEach(t => {
+            teamSelect.innerHTML += `<option value="${t.id}">${t.name}</option>`;
+        });
+        
+        if(currentVal) teamSelect.value = currentVal;
+
+        const list = document.getElementById('registryList');
+        list.innerHTML = appData.teams.map(t => {
+            const players = appData.players.filter(p => p.teamId == t.id);
+            return `
+                <div class="card" style="border-left: 5px solid ${t.color}">
+                    <h3 style="color:${t.color}">
+                        ${t.name}
+                        <i class="fas fa-pencil-alt edit-btn" onclick="openEditModal('team', ${t.id})"></i>
+                    </h3>
+                    <ul>
+                        ${players.map(p => `
+                            <li>
+                                <span class="clickable-player" onclick="openProfile('${p.id}')">${p.name}</span>
+                                <i class="fas fa-pencil-alt edit-btn" onclick="openEditModal('player', ${p.id})"></i>
+                            </li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // --- EDIT & TRANSFER ---
+    window.openEditModal = function(type, id) {
+        document.getElementById('editId').value = id;
+        document.getElementById('editType').value = type;
+        document.getElementById('editModal').style.display = 'flex';
+
+        if(type === 'team') {
+            const t = appData.teams.find(x => x.id == id);
+            document.getElementById('editName').value = t.name;
+            document.getElementById('editTeamExtra').style.display = 'none';
+        } else {
+            const p = appData.players.find(x => x.id == id);
+            document.getElementById('editName').value = p.name;
+            document.getElementById('editTeamExtra').style.display = 'block';
+            
+            const sel = document.getElementById('editPlayerTeamSelect');
+            sel.innerHTML = appData.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+            sel.value = p.teamId;
+        }
+    }
+
+    window.saveEdit = function() {
+        const id = document.getElementById('editId').value;
+        const type = document.getElementById('editType').value;
+        const name = document.getElementById('editName').value;
+
+        if(type === 'team') {
+            const t = appData.teams.find(x => x.id == id);
+            t.name = name;
+            logAction(`Renamed Team to: ${name}`);
+        } else {
+            const p = appData.players.find(x => x.id == id);
+            const newTeamId = document.getElementById('editPlayerTeamSelect').value;
+            
+            p.name = name;
+            if(p.teamId != newTeamId) {
+                const oldTeam = appData.teams.find(t => t.id == p.teamId);
+                const newTeam = appData.teams.find(t => t.id == newTeamId);
+                
+                if(!p.transfers) p.transfers = [];
+                p.transfers.push({
+                    from: oldTeam ? oldTeam.name : 'Unknown',
+                    to: newTeam.name,
+                    date: new Date().toLocaleDateString()
+                });
+                
+                p.teamId = newTeamId;
+                logAction(`Transferred ${name} to ${newTeam.name}`);
+            }
+        }
+        saveData();
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    // --- FIXTURES ---
+    window.createMatchday = function() {
+        const name = document.getElementById('fixMatchday').value;
+        if(!name) return alert("Enter Matchday Name");
+        
+        const md = { id: Date.now(), name, matches: [], status: 'pending' };
+        appData.fixtures.push(md);
+        logAction(`Created Matchday: ${name}`);
+        saveData();
+        document.getElementById('fixMatchday').value = '';
+    }
+
+    window.openAddMatchModal = function(mdId) {
+        document.getElementById('targetMatchdayId').value = mdId;
+        const opts = appData.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+        document.getElementById('fixTeamA').innerHTML = opts;
+        document.getElementById('fixTeamB').innerHTML = opts;
+        document.getElementById('addMatchModal').style.display = 'flex';
+    }
+
+    window.submitNewMatch = function() {
+        const mdId = document.getElementById('targetMatchdayId').value;
+        const tA = document.getElementById('fixTeamA').value;
+        const tB = document.getElementById('fixTeamB').value;
+        
+        if(tA === tB) return alert("Teams must be different");
+
+        const matchday = appData.fixtures.find(f => f.id == mdId);
+        if(matchday) {
+            if(!matchday.matches) matchday.matches = [];
+            matchday.matches.push({
+                id: Date.now() + Math.random(),
+                teamA: tA,
+                teamB: tB,
+                played: false,
+                result: null
+            });
+            saveData();
+            document.getElementById('addMatchModal').style.display = 'none';
+        }
+    }
+
+    function renderFixtures() {
+        const container = document.getElementById('fixturesList');
+        container.innerHTML = appData.fixtures.map(f => `
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <h4>${f.name}</h4>
+                    <button class="btn btn-sm btn-primary admin-only" onclick="openAddMatchModal(${f.id})">+ Add Match</button>
+                </div>
+                ${(f.matches || []).map(m => {
+                    const tA = appData.teams.find(t=>t.id == m.teamA)?.name || 'Unknown';
+                    const tB = appData.teams.find(t=>t.id == m.teamB)?.name || 'Unknown';
+                    return `<div class="match-card">
+                        <span>${tA}</span> <span>VS</span> <span>${tB}</span>
+                        ${m.played ? '<span style="color:var(--money)">DONE</span>' : '<span style="color:var(--text-muted)">PENDING</span>'}
+                    </div>`;
+                }).join('')}
+            </div>
+        `).join('');
+    }
+
+    // --- RESULTS ---
+    function renderResults() {
+        const pendingDiv = document.getElementById('pendingResultsList');
+        const completedDiv = document.getElementById('completedResultsList');
+        pendingDiv.innerHTML = '';
+        completedDiv.innerHTML = '';
+
+        appData.fixtures.forEach(f => {
+            if(!f.matches) return;
+            f.matches.forEach(m => {
+                const tA = appData.teams.find(t=>t.id == m.teamA);
+                const tB = appData.teams.find(t=>t.id == m.teamB);
+                if(!tA || !tB) return;
+
+                if(!m.played) {
+                    pendingDiv.innerHTML += `
+                        <div class="match-card">
+                            <div>${tA.name} VS ${tB.name} (${f.name})</div>
+                            <button class="btn btn-primary admin-only" onclick="openResultModal('${f.id}', '${m.id}')">Enter Result</button>
+                        </div>
+                    `;
+                } else {
+                    completedDiv.innerHTML += `
+                        <div class="card" style="margin-bottom:0.5rem; padding:1rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:${tA.color}; font-weight:bold">${tA.name}</span>
+                                <span class="score-display">${m.result.scoreA} - ${m.result.scoreB}</span>
+                                <span style="color:${tB.color}; font-weight:bold">${tB.name}</span>
+                            </div>
+                            <div style="text-align:center; margin-top:0.5rem; font-size:0.85rem; color:var(--text-muted);">
+                                Fouls: ${m.result.foulsA} - ${m.result.foulsB}
+                            </div>
+                            <div style="text-align:center; margin-top:0.5rem;">
+                                <button class="btn btn-sm btn-outline" onclick="viewMatchDetails('${f.id}', '${m.id}')">View Details</button>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+        });
+    }
+
+    window.openResultModal = function(fixId, matchId) {
+        currentMatchId = { fixId, matchId };
+        const fix = appData.fixtures.find(f => f.id == fixId);
+        const match = fix.matches.find(m => m.id == matchId);
+        const tA = appData.teams.find(t => t.id == match.teamA);
+        const tB = appData.teams.find(t => t.id == match.teamB);
+
+        document.getElementById('resMatchTitle').innerText = `${tA.name} VS ${tB.name}`;
+        
+        document.getElementById('resTeamAContainer').innerHTML = renderTeamInputs(tA, 'A');
+        document.getElementById('resTeamBContainer').innerHTML = renderTeamInputs(tB, 'B');
+
+        const allPlayers = [...appData.players.filter(p=>p.teamId == tA.id), ...appData.players.filter(p=>p.teamId == tB.id)];
+        const opts = allPlayers.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        document.getElementById('resMOTM').innerHTML = opts;
+        document.getElementById('resMVP').innerHTML = opts;
+
+        document.getElementById('resultModal').style.display = 'flex';
+    }
+
+    function renderTeamInputs(team, side) {
+        const players = appData.players.filter(p => p.teamId == team.id);
+        let html = `<h4 style="color:${team.color}">${team.name} Inputs</h4>`;
+        players.forEach(p => {
+            html += `
+                <div class="card" style="padding:0.5rem; margin-bottom:0.5rem;">
+                    <div style="font-weight:bold; margin-bottom:5px;">${p.name}</div>
+                    <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap:5px;">
+                        <select id="leg_${p.id}" class="form-control" style="font-size:0.8rem">
+                            <option value="DNP">DNP</option>
+                            <option value="1">1st Leg</option>
+                            <option value="2">2nd Leg</option>
+                            <option value="Full">Full</option>
+                        </select>
+                        <input type="number" id="g_${p.id}" placeholder="G" class="form-control" style="width:100%">
+                        <input type="number" id="a_${p.id}" placeholder="A" class="form-control" style="width:100%">
+                        <input type="number" id="s_${p.id}" placeholder="Sav" class="form-control" style="width:100%">
+                    </div>
+                </div>
+            `;
+        });
+        html += `<div class="input-group"><label>Team Fouls</label><input type="number" id="fouls_${side}" class="form-control" value="0"></div>`;
+        return html;
+    }
+
+    window.closeResultModal = function() {
+        document.getElementById('resultModal').style.display = 'none';
+        currentMatchId = null;
+    }
+
+    window.submitMatchResult = function() {
+        if(!currentMatchId) return;
+        const fix = appData.fixtures.find(f => f.id == currentMatchId.fixId);
+        const match = fix.matches.find(m => m.id == currentMatchId.matchId);
+
+        let scoreA = 0;
+        let scoreB = 0;
+        let foulsA = parseInt(document.getElementById('fouls_A').value) || 0;
+        let foulsB = parseInt(document.getElementById('fouls_B').value) || 0;
+
+        const processPlayer = (pid) => {
+            const legs = document.getElementById(`leg_${pid}`).value;
+            if(legs === 'DNP') return null;
+            
+            const g = parseInt(document.getElementById(`g_${pid}`).value) || 0;
+            const a = parseInt(document.getElementById(`a_${pid}`).value) || 0;
+            const s = parseInt(document.getElementById(`s_${pid}`).value) || 0;
+            
+            return { pid, legs, g, a, s };
+        };
+
+        const tA = appData.teams.find(t => t.id == match.teamA);
+        const tB = appData.teams.find(t => t.id == match.teamB);
+        
+        const statsA = appData.players.filter(p => p.teamId == tA.id).map(p => processPlayer(p.id)).filter(x=>x);
+        const statsB = appData.players.filter(p => p.teamId == tB.id).map(p => processPlayer(p.id)).filter(x=>x);
+
+        statsA.forEach(s => scoreA += s.g);
+        statsB.forEach(s => scoreB += s.g);
+        
+        const motm = document.getElementById('resMOTM').value;
+        const mvp = document.getElementById('resMVP').value;
+
+        match.played = true;
+        match.result = { scoreA, scoreB, foulsA, foulsB, statsA, statsB, motm, mvp };
+
+        const updatePlayerStats = (statList) => {
+            statList.forEach(stat => {
+                const p = appData.players.find(x => x.id == stat.pid);
+                p.stats.g += stat.g;
+                p.stats.a += stat.a;
+                p.stats.s += stat.s;
+                
+                let legVal = stat.legs === 'Full' ? 1 : 0.5;
+                p.stats.legs += legVal;
+
+                let income = (stat.g * appData.config.goalVal) + (stat.a * appData.config.assistVal) + (stat.s * appData.config.saveVal);
+                p.stats.value += income;
+                
+                if(stat.pid == motm || stat.pid == mvp) p.stats.awards += 1;
+
+                p.history.push({
+                    match: `${tA.name} vs ${tB.name}`,
+                    date: new Date().toLocaleDateString(),
+                    g: stat.g, a: stat.a, s: stat.s,
+                    award: (stat.pid == motm ? '(MOTM)' : '') + (stat.pid == mvp ? '(MVP)' : '')
+                });
+            });
+        };
+
+        updatePlayerStats(statsA);
+        updatePlayerStats(statsB);
+
+        logAction(`Submitted Result: ${tA.name} ${scoreA}-${scoreB} ${tB.name}`);
+        saveData();
+        closeResultModal();
+    }
+
+    window.viewMatchDetails = function(fixId, matchId) {
+        const fix = appData.fixtures.find(f => f.id == fixId);
+        const match = fix.matches.find(m => m.id == matchId);
+        const tA = appData.teams.find(t => t.id == match.teamA);
+        const tB = appData.teams.find(t => t.id == match.teamB);
+
+        document.getElementById('mdTitle').innerText = `${tA.name} VS ${tB.name} (${fix.name})`;
+        document.getElementById('mdScore').innerText = `${match.result.scoreA} - ${match.result.scoreB}`;
+        document.getElementById('mdFouls').innerText = `Fouls: ${match.result.foulsA} - ${match.result.foulsB}`;
+
+        const renderStatList = (stats, team) => {
+            let html = `<h4 style="color:${team.color}; text-align:center;">${team.name}</h4><ul style="list-style:none; padding:0">`;
+            stats.forEach(s => {
+                const p = appData.players.find(pl => pl.id == s.pid);
+                html += `
+                    <li style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05)">
+                        <span class="clickable-player" onclick="openProfile('${p.id}')">${p.name}</span>
+                        <span style="font-family:monospace">${s.g}G ${s.a}A ${s.s}S</span>
+                    </li>`;
+            });
+            html += '</ul>';
+            return html;
+        };
+
+        document.getElementById('mdTeamA').innerHTML = renderStatList(match.result.statsA, tA);
+        document.getElementById('mdTeamB').innerHTML = renderStatList(match.result.statsB, tB);
+
+        const motmP = appData.players.find(p => p.id == match.result.motm);
+        const mvpP = appData.players.find(p => p.id == match.result.mvp);
+
+        document.getElementById('mdAwards').innerHTML = `
+            <div style="margin-bottom:5px;">MOTM: <span class="clickable-player" style="font-weight:bold; color:gold" onclick="openProfile('${motmP.id}')">${motmP.name}</span></div>
+            <div>MVP: <span class="clickable-player" style="font-weight:bold; color:var(--money)" onclick="openProfile('${mvpP.id}')">${mvpP.name}</span></div>
+        `;
+
+        document.getElementById('matchDetailsModal').style.display = 'flex';
+    }
+
+    // --- LEADERBOARDS ---
+    function renderTeamLb() {
+        const tbody = document.getElementById('teamLbBody');
+        const teamStats = appData.teams.map(t => {
+            let s = { id: t.id, name: t.name, color: t.color, p:0, w:0, d:0, l:0, gf:0, ga:0, gd:0, pts:0 };
+            appData.fixtures.forEach(f => {
+                if(!f.matches) return;
+                f.matches.forEach(m => {
+                    if(!m.played) return;
+                    let isA = m.teamA == t.id;
+                    let isB = m.teamB == t.id;
+                    if(!isA && !isB) return;
+
+                    s.p++;
+                    let myScore = isA ? m.result.scoreA : m.result.scoreB;
+                    let opScore = isA ? m.result.scoreB : m.result.scoreA;
+
+                    s.gf += myScore;
+                    s.ga += opScore;
+
+                    if(myScore > opScore) s.w += 1;
+                    else if(myScore === opScore) s.d += 1;
+                    else s.l += 1;
+                });
+            });
+            s.pts = (s.w * 3) + (s.d * 1);
+            s.gd = s.gf - s.ga;
+            return s;
+        });
+
+        teamStats.sort((a,b) => b.pts - a.pts || b.gd - a.gd);
+
+        tbody.innerHTML = teamStats.map((t, i) => {
+            let rankClass = i===0?'rank-row-1':(i===1?'rank-row-2':(i===2?'rank-row-3':''));
+            return `
+                <tr style="border-left: 4px solid ${t.color}">
+                    <td class="${rankClass}">#${i+1}</td>
+                    <td style="color:${t.color}; font-weight:bold">${t.name}</td>
+                    <td>${t.p}</td>
+                    <td>${t.w}</td>
+                    <td>${t.d}</td>
+                    <td>${t.l}</td>
+                    <td>${t.gf}</td>
+                    <td>${t.ga}</td>
+                    <td>${t.gd}</td>
+                    <td style="font-weight:bold; font-size:1.1rem">${t.pts}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderPlayerLb(sortKey = 'value') {
+        // Toggle Active Class
+        document.querySelectorAll('.btn-outline').forEach(b => b.classList.remove('active'));
+        document.getElementById(`plb-btn-${sortKey}`).classList.add('active');
+
+        const tbody = document.getElementById('playerLbBody');
+        let players = [...appData.players];
+        
+        if(sortKey === 'value') players.sort((a,b) => b.stats.value - a.stats.value);
+        if(sortKey === 'goals') players.sort((a,b) => b.stats.g - a.stats.g);
+        if(sortKey === 'assists') players.sort((a,b) => b.stats.a - a.stats.a);
+        if(sortKey === 'saves') players.sort((a,b) => b.stats.s - a.stats.s);
+
+        tbody.innerHTML = players.map((p, i) => {
+            const team = appData.teams.find(t => t.id == p.teamId);
+            
+            // Exact Rank Logic
+            let gaPerLeg = p.stats.legs > 0 ? (p.stats.g + p.stats.a) / p.stats.legs : 0;
+            let sPerLeg = p.stats.legs > 0 ? p.stats.s / p.stats.legs : 0;
+            
+            let rankBadge = '<span class="rank-badge-c">C</span>';
+            if(gaPerLeg >= 3.5 || sPerLeg >= 10) rankBadge = '<span class="rank-badge-s">S</span>';
+            else if(gaPerLeg >= 2.5 || sPerLeg >= 7) rankBadge = '<span class="rank-badge-a">A</span>';
+            else if(gaPerLeg >= 1.5 || sPerLeg >= 4) rankBadge = '<span class="rank-badge-b">B</span>';
+
+            let rowClass = i===0?'rank-row-1':(i===1?'rank-row-2':(i===2?'rank-row-3':''));
+            let icon = i===0?'👑':(i===1?'⚔️':(i===2?'🔥':''));
+
+            return `
+                <tr onclick="openProfile('${p.id}')" style="cursor:pointer">
+                    <td class="${rowClass}">${icon} #${i+1}</td>
+                    <td style="font-weight:bold">${p.name} ${rankBadge}</td>
+                    <td style="color:${team?team.color:'white'}">${team?team.name:'-'}</td>
+                    <td>${p.stats.g} / ${p.stats.a} / ${p.stats.s}</td>
+                    <td>🏆 ${p.stats.awards}</td>
+                    <td class="money-val">$${p.stats.value.toLocaleString()}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // --- PROFILE ---
+    window.openProfile = function(pid) {
+        const p = appData.players.find(x => x.id == pid);
+        const team = appData.teams.find(t => t.id == p.teamId);
+        
+        // Stats Calculation
+        let legs = p.stats.legs || 1; // avoid div by zero
+        let gaPerLeg = ((p.stats.g + p.stats.a) / legs).toFixed(2);
+        let sPerLeg = (p.stats.s / legs).toFixed(2);
+        let valPerLeg = (p.stats.value / legs).toFixed(0);
+        let aPerLeg = (p.stats.a / legs).toFixed(2);
+        let gPerLeg = (p.stats.g / legs).toFixed(2);
+
+        // Rank Color Logic
+        let rankLabel = 'C', rankColor = 'var(--rank-c)';
+        let gaVal = parseFloat(gaPerLeg);
+        let sVal = parseFloat(sPerLeg);
+
+        if(gaVal >= 3.5 || sVal >= 10) { rankLabel = 'S'; rankColor = 'var(--rank-s)'; }
+        else if(gaVal >= 2.5 || sVal >= 7) { rankLabel = 'A'; rankColor = 'var(--rank-a)'; }
+        else if(gaVal >= 1.5 || sVal >= 4) { rankLabel = 'B'; rankColor = 'var(--rank-b)'; }
+
+        const html = `
+            <div style="text-align:center; margin-bottom:1.5rem;">
+                <h1 style="margin:0; font-size:2rem; text-transform:uppercase;">${p.name}</h1>
+                <div style="color:${team?team.color:'white'}; margin-top:5px; font-weight:bold;">${team?team.name:'Free Agent'}</div>
+                <div class="money-val" style="font-size:2.2rem; margin:1rem 0; text-shadow:0 0 10px rgba(74, 222, 128, 0.3);">$${p.stats.value.toLocaleString()}</div>
+                <div style="font-size: 1.5rem; font-weight:800; color:${rankColor}; border:2px solid ${rankColor}; display:inline-block; padding:0.2rem 1.5rem; border-radius:8px; box-shadow: 0 0 10px ${rankColor};">RANK ${rankLabel}</div>
+            </div>
+            
+            <div class="grid-4" style="margin-bottom:1.5rem;">
+                <div class="stat-box">
+                    <div class="stat-label">GOALS/LEG</div>
+                    <div class="stat-val" style="color:${rankColor}">${gPerLeg}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">ASSIST/LEG</div>
+                    <div class="stat-val" style="color:${rankColor}">${aPerLeg}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">SAVES/LEG</div>
+                    <div class="stat-val" style="color:${rankColor}">${sPerLeg}</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">VALUE/LEG</div>
+                    <div class="stat-val" style="color:var(--money); font-size:1rem">$${parseInt(valPerLeg).toLocaleString()}</div>
+                </div>
+            </div>
+
+            <div class="card" style="padding:1rem;">
+                <h3 style="border-bottom:1px solid #333; padding-bottom:5px;">Match History</h3>
+                <div style="max-height:150px; overflow-y:auto; font-size:0.9rem;">
+                    ${p.history.length ? p.history.slice().reverse().map(h => `
+                        <div style="padding:0.8rem 0; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:bold;">${h.match} <span style="color:gold; font-size:0.8rem">${h.award}</span></div>
+                                <div style="color:var(--text-muted); font-size:0.75rem;">${h.date}</div>
+                            </div>
+                            <div style="font-family:monospace; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">
+                                ${h.g}G / ${h.a}A / ${h.s}S
+                            </div>
+                        </div>
+                    `).join('') : '<div style="color:gray; padding:1rem; text-align:center;">No matches played</div>'}
+                </div>
+            </div>
+
+            <div class="card" style="padding:1rem; margin-top:1rem;">
+                <h3 style="border-bottom:1px solid #333; padding-bottom:5px;">Transfer History</h3>
+                <div style="max-height:150px; overflow-y:auto; font-size:0.9rem;">
+                    ${p.transfers && p.transfers.length ? p.transfers.slice().reverse().map(t => `
+                        <div style="padding:0.8rem 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>${t.from} <i class="fas fa-arrow-right" style="color:var(--primary); margin:0 5px;"></i> ${t.to}</span>
+                                <span style="color:var(--text-muted); font-size:0.8rem">${t.date}</span>
+                            </div>
+                        </div>
+                    `).join('') : '<div style="color:gray; padding:1rem; text-align:center;">No transfers</div>'}
+                </div>
+            </div>
+        `;
+        document.getElementById('profileContent').innerHTML = html;
+        document.getElementById('profileModal').style.display = 'flex';
+    }
+
+    // --- LOGS & OTHERS ---
+    function renderLogs() {
+        const div = document.getElementById('logsContainer');
+        div.innerHTML = appData.logs.slice().reverse().map(l => `
+            <div class="log-entry">
+                <span class="log-date">[${l.timestamp}]</span>
+                <span style="color:var(--primary)">${l.user}</span>: ${l.action}
+            </div>
+        `).join('');
+    }
+
+    window.saveConfig = function() {
+        appData.config.goalVal = parseInt(document.getElementById('confGoalVal').value);
+        appData.config.assistVal = parseInt(document.getElementById('confAssistVal').value);
+        appData.config.saveVal = parseInt(document.getElementById('confSaveVal').value);
+        logAction('Updated Economy Settings');
+        saveData();
+        alert("Settings Saved");
+    }
+
+    window.clearLogs = function() {
+        const pwd = prompt("Enter Password to Clear Logs:");
+        if(pwd === "676767") {
+            appData.logs = [];
+            saveData();
+            alert("Logs Cleared");
+        } else {
+            alert("Incorrect Password");
+        }
+    }
+
+    window.factoryReset = function() {
+        const conf = confirm("WARNING: This will delete ALL teams, players, and matches. Logs will be kept.");
+        if(conf) {
+            const check = prompt("Type 'delete' to confirm:");
+            if(check === 'delete') {
+                appData.teams = [];
+                appData.players = [];
+                appData.fixtures = [];
+                logAction("FACTORY RESET PERFORMED");
+                saveData();
+                location.reload();
+            }
+        }
+    }
+
+</script>
+</body>
+</html>
