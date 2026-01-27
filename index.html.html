@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Lock Manager (Live System)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --primary: #3b82f6;
+            --accent: #f43f5e;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: rgba(255,255,255,0.1);
+            
+            /* Economy & Ranks */
+            --money: #4ade80;
+            --rank-s: #fbbf24;
+            --rank-a: #a855f7;
+            --rank-b: #22c55e;
+            --rank-c: #94a3b8;
+            
+            /* VFX */
+            --glow-s: 0 0 15px rgba(251, 191, 36, 0.4);
+            --glow-a: 0 0 12px rgba(168, 85, 247, 0.4);
+        }
+
+        * { box-sizing: border-box; font-family: 'Outfit', sans-serif; margin: 0; padding: 0; }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 50px;
+        }
+
+        /* --- SECURITY LAYERS --- */
+        .admin-only, 
+        .admin-only-inline, 
+        .admin-only-flex,
+        .admin-section { 
+            display: none !important; 
+        }
+
+        body.is-admin .admin-only { display: block !important; }
+        body.is-admin .admin-only-flex { display: flex !important; }
+        body.is-admin .admin-only-inline { display: inline-block !important; }
+        body.is-admin .admin-section.active { display: block !important; }
+
+        /* Login Button Styling */
+        .auth-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+        .auth-btn:hover { background: var(--primary); color: white; }
+        .auth-btn.logout { border-color: var(--accent); color: var(--accent); }
+        .auth-btn.logout:hover { background: var(--accent); color: white; }
+
+        /* --- UI Elements --- */
+        nav {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            overflow-x: auto; 
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch; 
+            padding-right: 1rem;
+        }
+        nav::-webkit-scrollbar { display: none; }
+        nav { -ms-overflow-style: none;  scrollbar-width: none; }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            white-space: nowrap; 
+            flex-shrink: 0; 
+        }
+        .nav-btn:hover, .nav-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+        }
+
+        .nav-spacer { margin-left: auto; }
+        @media (max-width: 600px) { .nav-spacer { margin-left: 0; } }
+
+        main { flex: 1; padding: 2rem; max-width: 1400px; margin: 0 auto; width: 100%; }
+        .section { display: none; animation: fadeIn 0.3s ease; }
+        .section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* Guide Styling */
+        .guide-container { color: #cbd5e1; line-height: 1.6; max-width: 800px; margin: 0 auto; }
+        .guide-header { text-align: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        .guide-section { margin-bottom: 2rem; }
+        .guide-title { color: var(--primary); font-size: 1.2rem; font-weight: 800; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px; }
+        .guide-box { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; border-left: 3px solid var(--border); margin-bottom: 1rem; }
+        .rank-ex { padding: 0.5rem; margin: 0.5rem 0; border-radius: 4px; font-weight: bold; font-size: 0.9rem; }
+        .bg-s { background: linear-gradient(90deg, rgba(251, 191, 36, 0.1), transparent); border-left: 3px solid var(--rank-s); color: var(--rank-s); }
+        .bg-a { background: linear-gradient(90deg, rgba(168, 85, 247, 0.1), transparent); border-left: 3px solid var(--rank-a); color: var(--rank-a); }
+        .bg-b { background: linear-gradient(90deg, rgba(34, 197, 94, 0.1), transparent); border-left: 3px solid var(--rank-b); color: var(--rank-b); }
+        .bg-c { background: linear-gradient(90deg, rgba(148, 163, 184, 0.1), transparent); border-left: 3px solid var(--rank-c); color: var(--rank-c); }
+
+        /* Inputs & Buttons */
+        .input-group { margin-bottom: 1rem; }
+        input, select {
+            width: 100%;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 0.8rem;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        input:focus { outline: none; border-color: var(--primary); }
+        input:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 800;
+            text-transform: uppercase;
+            width: 100%;
+            transition: 0.2s;
+        }
+        .btn:hover { filter: brightness(1.2); }
+        .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; }
+        .btn-danger { background: var(--accent); }
+        .btn-edit { background: #64748b; }
+        .btn-hype { background: linear-gradient(135deg, #f97316, #fbbf24); color: #0f172a; border: none; }
+        .btn-hype:disabled { opacity: 0.6; filter: grayscale(0.8); cursor: not-allowed; }
+        .btn-compare { background: transparent; border: 1px solid #94a3b8; color: #94a3b8; }
+        .btn-compare:hover { border-color: var(--text); color: var(--text); background: rgba(255,255,255,0.05); }
+
+        .player-link {
+            color: var(--text);
+            cursor: pointer;
+            text-decoration: none;
+            border-bottom: 1px dotted rgba(255,255,255,0.3);
+            transition: 0.2s;
+        }
+        .player-link:hover { color: var(--primary); border-color: var(--primary); }
+
+        .match-sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .stat-input-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr 0.6fr 0.6fr 0.6fr;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            background: rgba(0,0,0,0.2);
+            padding: 0.5rem;
+            border-radius: 6px;
+        }
+        .stat-input-row label { font-size: 0.7rem; color: #64748b; text-align: center; text-transform: uppercase; }
+        .stat-input { text-align: center; padding: 0.4rem; }
+        select.inp-leg { font-size: 0.8rem; padding: 0.4rem; background: #334155; color: #f8fafc; border: 1px solid rgba(255,255,255,0.1); }
+
+        .roster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem; }
+        .player-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .result-card { border-left: 5px solid var(--primary); position: relative; }
+        .result-actions { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: flex-end; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        th { text-align: left; color: #64748b; font-size: 0.75rem; text-transform: uppercase; padding: 1rem; }
+        td { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.05); font-weight: 500; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+        
+        .money-val { color: var(--money); font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: -0.5px; }
+
+        /* Logs Table */
+        .log-row { font-size: 0.85rem; color: #cbd5e1; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+        .log-time { color: var(--text-muted); font-family: monospace; }
+        .log-admin { color: var(--accent); font-weight: bold; }
+        .log-action { font-weight: 600; color: var(--primary); }
+
+        /* --- RANK ANIMATIONS --- */
+        @keyframes shine-gold {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        @keyframes float-crown {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px) scale(1.1); }
+        }
+        @keyframes clash-swords {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(15deg) scale(1.2); }
+        }
+        @keyframes pulse-fire {
+            0% { box-shadow: 0 0 0 rgba(205, 127, 50, 0); }
+            50% { box-shadow: 0 0 10px rgba(249, 115, 22, 0.4); }
+            100% { box-shadow: 0 0 0 rgba(205, 127, 50, 0); }
+        }
+
+        /* Rank 1: The King */
+        .rank-row-1 td {
+            color: #fbbf24 !important;
+            border-bottom: 2px solid #fbbf24 !important;
+            background: linear-gradient(90deg, rgba(251, 191, 36, 0.1), rgba(251, 191, 36, 0.25), rgba(251, 191, 36, 0.1));
+            background-size: 200% auto;
+            animation: shine-gold 3s linear infinite;
+        }
+        .rank-icon-1 { display:inline-block; animation: float-crown 2s ease-in-out infinite; margin-right:5px; }
+
+        /* Rank 2: The Warrior */
+        .rank-row-2 td {
+            color: #e2e8f0 !important;
+            border-bottom: 2px solid #94a3b8 !important;
+            background: linear-gradient(90deg, rgba(148, 163, 184, 0.1), rgba(148, 163, 184, 0.2));
+        }
+        .rank-icon-2 { display:inline-block; animation: clash-swords 2s ease-in-out infinite; margin-right:5px; }
+
+        /* Rank 3: The Demon */
+        .rank-row-3 td {
+            color: #fb923c !important;
+            border-bottom: 2px solid #fb923c !important;
+            background: rgba(249, 115, 22, 0.05);
+            animation: pulse-fire 2s infinite;
+        }
+        .rank-icon-3 { display:inline-block; margin-right:5px; filter: drop-shadow(0 0 5px #f97316); }
+
+        /* Modals */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 200; backdrop-filter: blur(5px);
+            align-items: center; justify-content: center;
+        }
+        .profile-card {
+            background: #1e293b; width: 600px; max-width: 95%; max-height: 90vh;
+            border-radius: 16px; border: 1px solid var(--primary);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .profile-header {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            padding: 1.5rem; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .profile-body { padding: 1.5rem; overflow-y: auto; }
+        
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .stat-box {
+            background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;
+            border: 1px solid var(--border); position: relative;
+        }
+        .stat-box small { display: block; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 5px; }
+        .stat-box strong { font-size: 1.2rem; }
+
+        .rank-s { color: var(--rank-s); text-shadow: var(--glow-s); }
+        .rank-a { color: var(--rank-a); text-shadow: var(--glow-a); }
+        .rank-b { color: var(--rank-b); }
+        .rank-c { color: var(--rank-c); }
+
+        .history-item { padding: 0.8rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .tag { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; background: #334155; color: #cbd5e1; display:inline-block; }
+        .tag-mvp { background: var(--rank-a); color: white; margin-right:5px; font-weight:bold; box-shadow: var(--glow-a); }
+        .tag-motm { background: var(--rank-s); color: #0f172a; margin-right:5px; font-weight:bold; box-shadow: var(--glow-s); }
+
+        /* Comparison Styling */
+        .comp-row { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px 0; }
+        .comp-val { font-weight: 800; font-size: 1.1rem; width: 100px; text-align: center; }
+        .comp-label { color: #94a3b8; flex: 1; text-align: center; font-size: 0.9rem; text-transform: uppercase; display: flex; align-items: center; justify-content: center; }
+        .win { color: var(--money); text-shadow: 0 0 5px rgba(74, 222, 128, 0.4); }
+
+        @media (max-width: 900px) {
+            .match-sheet-grid { grid-template-columns: 1fr; }
+            .stat-grid { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <button class="nav-btn active" onclick="switchTab('registry')">Registry</button>
+        <button class="nav-btn" onclick="switchTab('match')">Match Center</button>
+        <button class="nav-btn" onclick="switchTab('results')">Results</button>
+        <button class="nav-btn" onclick="switchTab('lb-team')">Team Standings</button>
+        <button class="nav-btn" onclick="switchTab('lb-player')">Player Leaderboard</button>
+        <button class="nav-btn admin-only" onclick="switchTab('logs')">System Logs</button>
+        <div class="nav-spacer">
+            <button id="authBtn" class="auth-btn" onclick="openLogin()">ADMIN LOGIN</button>
+        </div>
+    </nav>
+
+    <main>
+        <div id="registry" class="section active">
+            <div class="admin-only" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="card">
+                    <h3>Create Team</h3>
+                    <div class="input-group"><input type="text" id="regTeamName" placeholder="Team Name"></div>
+                    <div class="input-group"><input type="color" id="regTeamColor" value="#3b82f6" style="height:40px;"></div>
+                    <button class="btn" onclick="addTeam()">Register Team</button>
+                </div>
+                <div class="card">
+                    <h3>Sign Player</h3>
+                    <div class="input-group"><input type="text" id="regPlayerName" placeholder="Player Name"></div>
+                    <div class="input-group"><select id="regPlayerTeam"><option>Select Team...</option></select></div>
+                    <button class="btn" onclick="addPlayer()">Sign Player</button>
+                </div>
+            </div>
+
+            <h2>Active Rosters</h2>
+            <div id="rosterList" class="roster-grid"></div>
+
+            <div class="admin-only" style="margin-top: 4rem; border-top: 1px solid var(--accent); padding-top: 2rem;">
+                <h3 style="color:var(--accent)">Danger Zone</h3>
+                <p style="color:#64748b; margin-bottom:1rem;">Wipe all data including players, teams, and history.</p>
+                <button class="btn btn-danger" onclick="wipeData()">RESET SYSTEM</button>
+            </div>
+        </div>
+
+        <div id="match" class="section">
+            <div id="matchSetup" class="card admin-only" style="text-align: center; max-width: 600px; margin: 0 auto 2rem auto;">
+                <h2>Start New Match</h2>
+                <div style="display: flex; gap: 1rem; align-items: center; margin: 2rem 0;">
+                    <select id="setupTeamA"><option>Team A</option></select>
+                    <span style="font-weight:800; font-size: 1.5rem;">VS</span>
+                    <select id="setupTeamB"><option>Team B</option></select>
+                </div>
+                <button class="btn" onclick="initMatchSheet()">KICK OFF</button>
+            </div>
+
+            <div id="matchSheet" style="display: none;">
+                <div class="card" style="position:sticky; top: 80px; z-index:90; background: rgba(15,23,42,0.95); border: 1px solid var(--primary);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: center; width: 40%;">
+                            <h2 id="sheetNameA" style="margin:0;">Team A</h2>
+                            <div id="sheetScoreA" style="font-size: 3rem; font-weight:800; line-height:1;">0</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #64748b;">-</div>
+                        <div style="text-align: center; width: 40%;">
+                            <h2 id="sheetNameB" style="margin:0;">Team B</h2>
+                            <div id="sheetScoreB" style="font-size: 3rem; font-weight:800; line-height:1;">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="match-sheet-grid">
+                    <div class="card" id="panelA">
+                        <div class="sheet-header">
+                            <h3>Team Stats</h3>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <span style="font-size:0.8rem; color:#f43f5e;">FOULS</span>
+                                <input type="number" id="foulsA" value="0" min="0" onchange="calcLiveScore()" style="width:50px; text-align:center;">
+                            </div>
+                        </div>
+                        <div id="rowsA"></div>
+                    </div>
+                    <div class="card" id="panelB">
+                        <div class="sheet-header">
+                            <h3>Team Stats</h3>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <span style="font-size:0.8rem; color:#f43f5e;">FOULS</span>
+                                <input type="number" id="foulsB" value="0" min="0" onchange="calcLiveScore()" style="width:50px; text-align:center;">
+                            </div>
+                        </div>
+                        <div id="rowsB"></div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button class="btn btn-danger" onclick="cancelMatch()">Discard</button>
+                    <button class="btn" onclick="finalizeMatch()">FULL TIME</button>
+                </div>
+            </div>
+
+            <div id="systemGuide" class="card guide-container">
+                <div class="guide-header">
+                    <h1>🏟️ UEL MANAGER</h1>
+                    <p style="color:var(--primary); font-weight:bold; letter-spacing:1px;">OFFICIAL FACILITY ACCESS</p>
+                    <div style="margin-top:10px; color:#94a3b8; font-style:italic;">"Track elite players. Analyze dominance. Watch legends rise."</div>
+                </div>
+
+                <div class="guide-section">
+                    <div class="guide-title">🏆 1. LEADERBOARD & RANKINGS</div>
+                    <p style="margin-bottom:10px;">Navigate to <b>Player Leaderboard</b> to see who rules the league.</p>
+                    <div class="guide-box">
+                        <h4 style="color:var(--text); margin-bottom:5px;">🌟 Top 3 VFX Indicators</h4>
+                        <ul style="list-style:none; padding-left:10px;">
+                            <li style="margin-bottom:5px;">👑 <b>#1 The King:</b> Gold BG + Floating Crown</li>
+                            <li style="margin-bottom:5px;">⚔️ <b>#2 The Warrior:</b> Silver BG + Clashing Swords</li>
+                            <li>🔥 <b>#3 The Demon:</b> Bronze BG + Awakened Fire</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="guide-section">
+                    <div class="guide-title">🔎 2. EGOIST GRADING SYSTEM</div>
+                    <p style="margin-bottom:10px;">Click any player to see their profile. Stats are auto-colored based on performance <b>per leg</b>.</p>
+                    <div class="rank-ex bg-s">💛 S-RANK (World Class)</div>
+                    <div class="rank-ex bg-a">💜 A-RANK (Elite)</div>
+                    <div class="rank-ex bg-b">💚 B-RANK (Average)</div>
+                    <div class="rank-ex bg-c">⚪ C-RANK (Unpolished)</div>
+                </div>
+
+                <div class="guide-section">
+                    <div class="guide-title">🛡️ 4. VIEW-ONLY MODE</div>
+                    <p style="color:#94a3b8;">System access is restricted for visitors.</p>
+                </div>
+
+                <div class="guide-section">
+                    <div class="guide-title">🔥 5. FAN ZONE & ANALYTICS</div>
+                    <div class="guide-box">
+                        <ul style="list-style:none; padding-left:5px; color:#cbd5e1;">
+                            <li style="margin-bottom:15px;">
+                                🗳️ <b>Public Voting (Hype):</b>
+                                <div style="font-size:0.9rem; color:#94a3b8; margin-top:3px;">
+                                    Click the <b>🔥 HYPE</b> button on a player's profile to vote.
+                                    <br><i>(Note: Limited to 1 vote per device per player for fair competition).</i>
+                                </div>
+                            </li>
+                            <li style="margin-bottom:10px;">
+                                ⚖️ <b>Player Comparison Tool:</b>
+                                <ol style="padding-left:20px; margin-top:5px; font-size:0.9rem; color:#94a3b8;">
+                                    <li>Open a Player's Profile.</li>
+                                    <li>Click the <b>[⚖️ COMPARE]</b> button.</li>
+                                    <li>Select a second player from the list to face them off.</li>
+                                    <li>See the "Winner" highlighted in green for every stat.</li>
+                                </ol>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="text-align:center; margin-top:2rem; border-top:1px solid var(--border); padding-top:1rem;">
+                    <strong style="color:var(--money); font-size:1.1rem;">📈 Watch the rankings rise. Your value is everything.</strong>
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="section">
+            <h2>Match History</h2>
+            <div id="matchHistoryList"></div>
+        </div>
+
+        <div id="lb-team" class="section">
+            <h2>Team League Table</h2>
+            <div class="card">
+                <table id="tableTeam">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Team</th>
+                            <th style="text-align:center">MP</th>
+                            <th style="text-align:center">W</th>
+                            <th style="text-align:center">D</th>
+                            <th style="text-align:center">L</th>
+                            <th style="text-align:center">GD</th>
+                            <th style="text-align:right">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyTeam"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="lb-player" class="section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:1rem;">
+                <div style="display: flex; gap: 0.5rem; flex-wrap:wrap;">
+                    <button class="nav-btn active" onclick="renderPlayerLB('value')">Top Value</button>
+                    <button class="nav-btn" onclick="renderPlayerLB('goals')">Top Scorer</button>
+                    <button class="nav-btn" onclick="renderPlayerLB('assists')">Top Assists</button>
+                    <button class="nav-btn" onclick="renderPlayerLB('saves')">Top Saves</button>
+                </div>
+                <div class="input-group" style="margin:0; width: 250px;">
+                    <input type="text" id="playerSearch" placeholder="Search Player..." onkeyup="renderPlayerLB()">
+                </div>
+            </div>
+            
+            <div class="card">
+                <table id="tablePlayer">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player</th>
+                            <th>Team</th>
+                            <th>Stats (G/A/S)</th>
+                            <th>Value ($)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyPlayer"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="logs" class="section admin-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                <h2>System Audit Logs</h2>
+                <button class="btn btn-danger btn-sm" onclick="clearLogs()">CLEAR LOGS</button>
+            </div>
+            <div class="card">
+                <table id="tableLogs">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Admin</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyLogs"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <div id="loginModal" class="modal-overlay">
+        <div class="card" style="width: 350px;">
+            <h3 style="text-align:center; margin-bottom:1.5rem;">Admin Access</h3>
+            <div class="input-group">
+                <input type="email" id="loginEmail" placeholder="admin@bluelock.com">
+            </div>
+            <div class="input-group">
+                <input type="password" id="loginPass" placeholder="Password">
+            </div>
+            <div style="display:flex; gap:1rem;">
+                <button class="btn" onclick="performLogin()">Login</button>
+                <button class="btn btn-danger" onclick="closeLogin()">Cancel</button>
+            </div>
+            <div id="loginError" style="color:var(--accent); margin-top:1rem; text-align:center; font-size:0.9rem;"></div>
+        </div>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="card" style="width: 400px; max-width:90%;">
+            <h3>Edit / Transfer Player</h3>
+            <div class="input-group"><input type="text" id="editName"></div>
+            <div class="input-group"><label style="font-size:0.8rem; color:#94a3b8;">Current Team</label><select id="editTeamSelect"></select></div>
+            <div style="display:flex; gap:1rem;">
+                <button class="btn" onclick="saveEdit()">Save Changes</button>
+                <button class="btn btn-danger" onclick="closeEdit()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="comparisonModal" class="modal-overlay">
+        <div class="card" style="width: 600px; max-width:95%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h3 style="margin:0; color:var(--primary);">Face-Off Analysis</h3>
+                <button class="btn-sm btn-danger" onclick="closeCompare()">Close</button>
+            </div>
+            <div id="compareBody"></div>
+        </div>
+    </div>
+
+    <div id="profileModal" class="modal-overlay">
+        <div class="profile-card">
+            <div class="profile-header">
+                <div>
+                    <h2 id="profName" style="margin:0; border:none; padding:0;"></h2>
+                    <span id="profTeam" style="color:#94a3b8; font-size:0.9rem;"></span>
+                </div>
+                <div id="profVal" class="money-val" style="font-size:1.5rem;"></div>
+            </div>
+            <div class="profile-body">
+                <div style="display:flex; gap:10px; margin-bottom:1.5rem;">
+                    <button class="btn btn-sm btn-hype" id="hypeBtn" onclick="addHype()">🔥 HYPE <span id="hypeCount">0</span></button>
+                    <button class="btn btn-sm btn-compare" onclick="addToCompare()">⚖️ COMPARE</button>
+                </div>
+
+                <h4 style="color:#94a3b8; margin-bottom:1rem; text-transform:uppercase; letter-spacing:1px;">Leg Analysis</h4>
+                <div class="stat-grid">
+                    <div class="stat-box"><small>Goals/Leg</small><strong id="analG">0.0</strong></div>
+                    <div class="stat-box"><small>Assists/Leg</small><strong id="analA">0.0</strong></div>
+                    <div class="stat-box"><small>Saves/Leg</small><strong id="analS">0.0</strong></div>
+                    <div class="stat-box"><small>Value/Leg</small><strong id="analV" style="color:var(--money)">$0k</strong></div>
+                </div>
+
+                <h4 style="color:#94a3b8; margin-bottom:1rem; text-transform:uppercase; letter-spacing:1px;">Match History</h4>
+                <div id="profHistory" class="card" style="background: rgba(0,0,0,0.2); max-height: 200px; overflow-y: auto;"></div>
+                <h4 style="color:#94a3b8; margin:1rem 0; text-transform:uppercase; letter-spacing:1px;">Transfer Record</h4>
+                <div id="profTransfers" class="card" style="background: rgba(0,0,0,0.2); max-height: 150px; overflow-y: auto;"></div>
+                <button class="btn" style="margin-top:1rem;" onclick="closeProfile()">Close Profile</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-database.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+        const firebaseConfig = {
+  apiKey: "AIzaSyALXt6_YM9ZzDeJocLGpZJCIxrzSgsQkD0",
+  authDomain: "myleaguemanagement-de7a2.firebaseapp.com",
+  databaseURL: "https://myleaguemanagement-de7a2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "myleaguemanagement-de7a2",
+  storageBucket: "myleaguemanagement-de7a2.firebasestorage.app",
+  messagingSenderId: "578177851719",
+  appId: "1:578177851719:web:1cdaa4de47ae61736b6c62"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const auth = getAuth(app);
+        const dbRef = ref(database, 'blue_lock_data');
+
+        let db = { teams: [], players: [], matches: [], transfers: [], logs: [] };
+        let lastSortBy = 'value'; 
+        let currentProfileId = null;
+        let compareList = [];
+        
+        onValue(dbRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                db = data;
+                if (!db.teams) db.teams = [];
+                if (!db.players) db.players = [];
+                if (!db.matches) db.matches = [];
+                if (!db.transfers) db.transfers = []; 
+                if (!db.logs) db.logs = [];
+            } else {
+                db = { teams: [], players: [], matches: [], transfers: [], logs: [] };
+            }
+            refreshUI();
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            const authBtn = document.getElementById('authBtn');
+            const visitorMsg = document.getElementById('visitorMatchMsg');
+            
+            if (user) {
+                document.body.classList.add('is-admin');
+                authBtn.innerText = "LOGOUT";
+                authBtn.classList.add('logout');
+                authBtn.onclick = () => {
+                    logAction("Admin Logout", "User signed out");
+                    signOut(auth);
+                }
+                if(visitorMsg) visitorMsg.style.display = 'none';
+            } else {
+                document.body.classList.remove('is-admin');
+                authBtn.innerText = "ADMIN LOGIN";
+                authBtn.classList.remove('logout');
+                authBtn.onclick = () => openLogin();
+                if(visitorMsg) visitorMsg.style.display = 'block';
+                if(activeMatch) window.cancelMatch();
+                if(document.getElementById('logs').classList.contains('active')) window.switchTab('registry');
+            }
+        });
+
+        window.saveData = function() { set(dbRef, db); }
+        
+        window.logAction = function(action, details) {
+            if(!db.logs) db.logs = [];
+            const rawEmail = auth.currentUser ? auth.currentUser.email : 'Unknown';
+            let maskedEmail = rawEmail;
+            if (rawEmail !== 'Unknown' && rawEmail.includes('@')) {
+                const parts = rawEmail.split('@');
+                const local = parts[0];
+                const domain = parts[1];
+                if (local.length > 4) {
+                    maskedEmail = '*******' + local.slice(-4) + '@' + domain;
+                } else {
+                    maskedEmail = '****' + '@' + domain;
+                }
+            }
+            db.logs.push({
+                timestamp: new Date().toLocaleString(),
+                adminEmail: maskedEmail,
+                action: action,
+                details: details
+            });
+            window.saveData();
+            window.renderLogs();
+        }
+
+        window.wipeData = function() {
+            const confirmation = prompt("WARNING: This will delete ALL teams, players, and history.\nLogs will be preserved.\nType 'delete' to confirm.");
+            if (confirmation && confirmation.toLowerCase() === 'delete') {
+                logAction("SYSTEM RESET", "Admin wiped all data (Teams/Players/Matches)");
+                db.teams = [];
+                db.players = [];
+                db.matches = [];
+                db.transfers = [];
+                window.saveData();
+                alert("System Reset Complete.");
+            }
+        }
+
+        window.clearLogs = function() {
+            const pass = prompt("Enter Security Password to CLEAR ALL LOGS:");
+            if(pass === "357159") {
+                db.logs = [];
+                window.saveData();
+                window.renderLogs();
+                alert("System Logs have been wiped.");
+            } else {
+                alert("Incorrect Password. Access Denied.");
+            }
+        }
+
+        window.openLogin = function() { document.getElementById('loginModal').style.display = 'flex'; }
+        window.closeLogin = function() { document.getElementById('loginModal').style.display = 'none'; document.getElementById('loginError').innerText = ''; }
+        window.performLogin = function() {
+            const email = document.getElementById('loginEmail').value;
+            const pass = document.getElementById('loginPass').value;
+            signInWithEmailAndPassword(auth, email, pass)
+                .then(() => { logAction("Admin Login", `Login success`); window.closeLogin(); })
+                .catch((error) => { document.getElementById('loginError').innerText = "Error: " + error.message; });
+        }
+
+        const PRICES = { GOAL: 1000000, ASSIST: 500000, SAVE: 250000 };
+        let activeMatch = null;
+        let editingPlayerId = null;
+
+        window.switchTab = function(id) {
+            if(id === 'logs' && !auth.currentUser) return;
+            document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            if(id === 'lb-player') renderPlayerLB(lastSortBy);
+            if(id === 'lb-team') renderTeamLB();
+            if(id === 'results') renderResults();
+            if(id === 'logs') renderLogs();
+        }
+
+        function refreshUI() {
+            const selects = ['regPlayerTeam', 'setupTeamA', 'setupTeamB', 'editTeamSelect'];
+            selects.forEach(id => {
+                const el = document.getElementById(id);
+                if(!el) return;
+                const current = el.value;
+                el.innerHTML = '<option value="">Select Team...</option>';
+                db.teams.forEach(t => el.innerHTML += `<option value="${t.id}">${t.name}</option>`);
+                el.value = current;
+            });
+
+            const rosterDiv = document.getElementById('rosterList');
+            rosterDiv.innerHTML = '';
+            db.teams.forEach(t => {
+                const pList = db.players.filter(p => String(p.teamId) == String(t.id));
+                rosterDiv.innerHTML += `
+                    <div class="card" style="border-top: 3px solid ${t.color}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <h3 style="color:${t.color}">${t.name}</h3>
+                            <button class="btn-sm btn-danger admin-only-inline" onclick="deleteTeam(${t.id})">Del</button>
+                        </div>
+                        <div>
+                            ${pList.map(p => `
+                                <div class="player-row">
+                                    <span class="player-link" onclick="openProfile('${p.id}')">${p.name}</span>
+                                    <button class="btn-sm btn-edit admin-only-inline" onclick="openEdit('${p.id}')">Edit</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>`;
+            });
+            if(document.getElementById('logs').classList.contains('active')) renderLogs();
+        }
+
+        window.addTeam = function() {
+            const name = document.getElementById('regTeamName').value;
+            const color = document.getElementById('regTeamColor').value;
+            if(!name) return;
+            db.teams.push({ id: Date.now(), name, color });
+            document.getElementById('regTeamName').value = '';
+            logAction("Create Team", `Created team: ${name}`);
+            window.saveData();
+        }
+
+        window.deleteTeam = function(id) {
+            if(confirm("Delete team?")) { 
+                const t = db.teams.find(x => x.id == id);
+                logAction("Delete Team", `Deleted team: ${t ? t.name : id}`);
+                db.teams = db.teams.filter(t => t.id != id); 
+                window.saveData(); 
+            }
+        }
+
+        window.addPlayer = function() {
+            const name = document.getElementById('regPlayerName').value;
+            const tid = document.getElementById('regPlayerTeam').value;
+            if(!name || !tid) return;
+            const t = db.teams.find(x => x.id == tid);
+            db.players.push({ id: Date.now(), name, teamId: tid, hype: 0 });
+            document.getElementById('regPlayerName').value = '';
+            logAction("Sign Player", `Signed ${name} to ${t ? t.name : tid}`);
+            window.saveData();
+        }
+
+        window.openEdit = function(pid) {
+            const p = db.players.find(x => x.id == pid);
+            editingPlayerId = pid;
+            document.getElementById('editName').value = p.name;
+            document.getElementById('editTeamSelect').value = p.teamId;
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        window.saveEdit = function() {
+            if(!db.transfers) db.transfers = [];
+            const pIndex = db.players.findIndex(x => String(x.id) == String(editingPlayerId));
+            if(pIndex === -1) return;
+            const p = db.players[pIndex];
+            const newName = document.getElementById('editName').value;
+            const newTeamId = document.getElementById('editTeamSelect').value;
+            
+            if(String(p.teamId) != String(newTeamId)) {
+                const oldTeam = db.teams.find(t => String(t.id) == String(p.teamId));
+                const newTeam = db.teams.find(t => String(t.id) == String(newTeamId));
+                logAction("Transfer", `Transferred ${p.name} from ${oldTeam?.name} to ${newTeam?.name}`);
+                db.transfers.push({ playerId: String(p.id), from: String(p.teamId), to: String(newTeamId), date: new Date().toLocaleDateString() });
+            } else if (p.name !== newName) {
+                logAction("Edit Player", `Renamed ${p.name} to ${newName}`);
+            }
+            
+            db.players = db.players.map((player, index) => {
+                if (index === pIndex) return { ...player, name: newName, teamId: newTeamId };
+                return player;
+            });
+            
+            document.getElementById('editModal').style.display = 'none';
+            window.saveData();
+            refreshUI(); 
+        }
+        window.closeEdit = function() { document.getElementById('editModal').style.display = 'none'; }
+
+        function getRankClass(val, type) {
+            if (type === 'save') { if(val >= 12) return 'rank-s'; if(val >= 8) return 'rank-a'; if(val >= 4) return 'rank-b'; return 'rank-c'; } 
+            else { if(val >= 4) return 'rank-s'; if(val >= 3) return 'rank-a'; if(val >= 2) return 'rank-b'; return 'rank-c'; }
+        }
+
+        window.openProfile = function(pid) {
+            currentProfileId = pid;
+            const p = db.players.find(x => String(x.id) == String(pid));
+            if(!p) return;
+            const team = db.teams.find(t => t.id == p.teamId);
+            
+            // Check LocalStorage for Hype Vote
+            const votedList = JSON.parse(localStorage.getItem('bluelock_votes') || '[]');
+            const hasVoted = votedList.includes(String(pid));
+            const btn = document.getElementById('hypeBtn');
+            if(hasVoted) {
+                btn.disabled = true;
+                btn.innerText = `🔥 HYPED (${p.hype || 0})`;
+            } else {
+                btn.disabled = false;
+                btn.innerText = `🔥 HYPE ${p.hype || 0}`;
+            }
+
+            let totalLegs = 0, sumG = 0, sumA = 0, sumS = 0, sumV = 0;
+            let historyHTML = '';
+            const playerMatches = db.matches.filter(m => m.stats.some(s => String(s.playerId) === String(pid)));
+
+            playerMatches.forEach(m => {
+                const stat = m.stats.find(s => String(s.playerId) === String(pid));
+                if (!stat) return;
+                const isDNP = stat.leg === 'DNP';
+                if(!isDNP) {
+                    let legsPlayed = (stat.leg === 'Full') ? 2 : 1;
+                    totalLegs += legsPlayed;
+                    sumG += stat.g; sumA += stat.a; sumS += stat.s; sumV += stat.val;
+                }
+                const tA = db.teams.find(t => t.id == m.teamA);
+                const tB = db.teams.find(t => t.id == m.teamB);
+                let awardBadges = '';
+                if(String(m.awards.mvp) === String(pid)) awardBadges += '<span class="tag tag-mvp">MVP</span>';
+                if(String(m.awards.motm) === String(pid)) awardBadges += '<span class="tag tag-motm">MOTM</span>';
+                const rowStyle = isDNP ? 'opacity: 0.6;' : '';
+                const tagStyle = isDNP ? 'background: #ef4444; color: white;' : '';
+                historyHTML += `
+                <div class="history-item" style="${rowStyle}">
+                    <div><div style="margin-bottom:3px;">${awardBadges}<span style="color:${tA.color}">${tA.name}</span> vs <span style="color:${tB.color}">${tB.name}</span></div><div style="font-size:0.75rem; color:#94a3b8;">${new Date(m.id).toLocaleDateString()}</div></div>
+                    <div style="text-align:right"><span class="tag" style="${tagStyle}">${stat.leg || 'Full'}</span><span style="font-weight:bold; margin-left:8px;">${stat.g}G / ${stat.a}A / ${stat.s}S</span></div>
+                </div>`;
+            });
+
+            const gPerLeg = totalLegs > 0 ? (sumG / totalLegs).toFixed(2) : "0.0";
+            const aPerLeg = totalLegs > 0 ? (sumA / totalLegs).toFixed(2) : "0.0";
+            const sPerLeg = totalLegs > 0 ? (sumS / totalLegs).toFixed(2) : "0.0";
+            const vPerLeg = totalLegs > 0 ? (sumV / totalLegs) : 0;
+            let valPerLegDisplay = vPerLeg >= 1000000 ? '$' + (vPerLeg/1000000).toFixed(1) + 'M' : '$' + Math.round(vPerLeg/1000) + 'k';
+
+            document.getElementById('profName').innerText = p.name;
+            document.getElementById('profTeam').innerText = team ? team.name : 'Free Agent';
+            document.getElementById('profVal').innerText = '$' + sumV.toLocaleString('en-US');
+            
+            const elG = document.getElementById('analG'); elG.innerText = gPerLeg; elG.className = getRankClass(parseFloat(gPerLeg), 'goal');
+            const elA = document.getElementById('analA'); elA.innerText = aPerLeg; elA.className = getRankClass(parseFloat(aPerLeg), 'assist');
+            const elS = document.getElementById('analS'); elS.innerText = sPerLeg; elS.className = getRankClass(parseFloat(sPerLeg), 'save');
+            document.getElementById('analV').innerText = valPerLegDisplay;
+
+            const playerTransfers = db.transfers.filter(t => String(t.playerId) === String(pid));
+            let transHTML = playerTransfers.length ? '' : '<div style="padding:1rem; color:#64748b; font-style:italic;">No transfers recorded.</div>';
+            playerTransfers.forEach(t => {
+                const fromT = db.teams.find(x => String(x.id) == String(t.from));
+                const toT = db.teams.find(x => String(x.id) == String(t.to));
+                transHTML += `<div class="history-item"><span style="color:${fromT?fromT.color:'#94a3b8'}">${fromT?fromT.name:'Deleted Team'}</span><span style="color:#64748b;"> ➔ </span><span style="color:${toT?toT.color:'#94a3b8'}">${toT?toT.name:'Deleted Team'}</span><span style="font-size:0.8rem; color:#64748b;">${t.date}</span></div>`;
+            });
+
+            document.getElementById('profHistory').innerHTML = historyHTML || '<div style="padding:1rem">No matches played.</div>';
+            document.getElementById('profTransfers').innerHTML = transHTML;
+            document.getElementById('profileModal').style.display = 'flex';
+        }
+        window.closeProfile = function() { document.getElementById('profileModal').style.display = 'none'; currentProfileId = null; }
+
+        window.addHype = function() {
+            if(!currentProfileId) return;
+            const votedList = JSON.parse(localStorage.getItem('bluelock_votes') || '[]');
+            if(votedList.includes(String(currentProfileId))) {
+                alert("You have already hyped this player!");
+                return;
+            }
+
+            const p = db.players.find(x => String(x.id) == String(currentProfileId));
+            if(!p) return;
+            if(!p.hype) p.hype = 0;
+            p.hype++;
+
+            votedList.push(String(currentProfileId));
+            localStorage.setItem('bluelock_votes', JSON.stringify(votedList));
+
+            // Update UI
+            const btn = document.getElementById('hypeBtn');
+            btn.innerText = `🔥 HYPED (${p.hype})`;
+            btn.disabled = true;
+
+            window.saveData();
+        }
+
+        window.addToCompare = function() {
+            if(!currentProfileId) return;
+            if(compareList.length >= 2) compareList = []; 
+            compareList.push(currentProfileId);
+            
+            if(compareList.length === 1) {
+                alert("Player 1 Selected. Select another player to Compare.");
+                window.closeProfile();
+            } else {
+                window.closeProfile();
+                renderComparison();
+            }
+        }
+
+        window.renderComparison = function() {
+            const p1 = db.players.find(x => String(x.id) == String(compareList[0]));
+            const p2 = db.players.find(x => String(x.id) == String(compareList[1]));
+            
+            const getStats = (pid) => {
+                let totalLegs = 0, sumG = 0, sumA = 0, sumS = 0, sumV = 0;
+                db.matches.forEach(m => {
+                    const stat = m.stats.find(s => String(s.playerId) === String(pid));
+                    if(stat && stat.leg !== 'DNP') {
+                        let legs = (stat.leg === 'Full') ? 2 : 1;
+                        totalLegs += legs;
+                        sumG += stat.g; sumA += stat.a; sumS += stat.s; sumV += stat.val;
+                    }
+                });
+                return {
+                    g: totalLegs ? (sumG/totalLegs).toFixed(2) : 0,
+                    a: totalLegs ? (sumA/totalLegs).toFixed(2) : 0,
+                    s: totalLegs ? (sumS/totalLegs).toFixed(2) : 0,
+                    v: totalLegs ? (sumV/totalLegs) : 0,
+                    hype: db.players.find(x=>String(x.id)==String(pid)).hype || 0
+                };
+            };
+
+            const s1 = getStats(p1.id);
+            const s2 = getStats(p2.id);
+
+            const formatVal = (v) => v >= 1000000 ? (v/1000000).toFixed(1) + 'M' : Math.round(v/1000) + 'k';
+            const winner = (v1, v2) => parseFloat(v1) > parseFloat(v2) ? 'win' : '';
+
+            const html = `
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:1rem; text-align:center;">
+                    <div style="font-size:1.2rem; font-weight:800; color:var(--primary);">${p1.name}</div>
+                    <div style="font-size:1.2rem; font-weight:800; color:var(--accent);">${p2.name}</div>
+                </div>
+                
+                <div class="comp-row">
+                    <div class="comp-val ${winner(s1.v, s2.v)}">$${formatVal(s1.v)}</div>
+                    <div class="comp-label">Value / Leg</div>
+                    <div class="comp-val ${winner(s2.v, s1.v)}">$${formatVal(s2.v)}</div>
+                </div>
+                <div class="comp-row">
+                    <div class="comp-val ${winner(s1.g, s2.g)}">${s1.g}</div>
+                    <div class="comp-label">Goals / Leg</div>
+                    <div class="comp-val ${winner(s2.g, s1.g)}">${s2.g}</div>
+                </div>
+                <div class="comp-row">
+                    <div class="comp-val ${winner(s1.a, s2.a)}">${s1.a}</div>
+                    <div class="comp-label">Assists / Leg</div>
+                    <div class="comp-val ${winner(s2.a, s1.a)}">${s2.a}</div>
+                </div>
+                <div class="comp-row">
+                    <div class="comp-val ${winner(s1.s, s2.s)}">${s1.s}</div>
+                    <div class="comp-label">Saves / Leg</div>
+                    <div class="comp-val ${winner(s2.s, s1.s)}">${s2.s}</div>
+                </div>
+                <div class="comp-row">
+                    <div class="comp-val ${winner(s1.hype, s2.hype)}">🔥 ${s1.hype}</div>
+                    <div class="comp-label">Fan Hype</div>
+                    <div class="comp-val ${winner(s2.hype, s1.hype)}">🔥 ${s2.hype}</div>
+                </div>
+            `;
+            
+            document.getElementById('compareBody').innerHTML = html;
+            document.getElementById('comparisonModal').style.display = 'flex';
+            compareList = []; 
+        }
+        window.closeCompare = function() { document.getElementById('comparisonModal').style.display = 'none'; }
+
+        // --- MATCH & EDIT ---
+        window.initMatchSheet = function() {
+            const tA = document.getElementById('setupTeamA').value;
+            const tB = document.getElementById('setupTeamB').value;
+            if(!tA || !tB || tA == tB) return alert("Select 2 different teams");
+            const teamA = db.teams.find(t => t.id == tA);
+            const teamB = db.teams.find(t => t.id == tB);
+
+            activeMatch = {
+                id: Date.now(), teamA: tA, teamB: tB,
+                rosterA: db.players.filter(p => p.teamId == tA),
+                rosterB: db.players.filter(p => p.teamId == tB),
+                stats: [] // Reset stats
+            };
+            document.getElementById('matchSetup').style.display = 'none';
+            document.getElementById('matchSheet').style.display = 'block';
+            document.getElementById('sheetNameA').innerText = teamA.name; document.getElementById('sheetNameA').style.color = teamA.color;
+            document.getElementById('sheetNameB').innerText = teamB.name; document.getElementById('sheetNameB').style.color = teamB.color;
+            
+            renderRows('rowsA', activeMatch.rosterA, 'A');
+            renderRows('rowsB', activeMatch.rosterB, 'B');
+            document.getElementById('foulsA').value = 0;
+            document.getElementById('foulsB').value = 0;
+            window.calcLiveScore();
+        }
+
+        function renderRows(containerId, players, prefix) {
+            document.getElementById(containerId).innerHTML = players.map(p => `
+                <div class="stat-input-row" data-pid="${p.id}" data-prefix="${prefix}">
+                    <div style="font-weight:600; font-size:0.9rem;">${p.name}</div>
+                    <select class="stat-input inp-leg" onchange="handleLegChange(this)">
+                        <option value="Full">Full</option>
+                        <option value="1st">1st</option>
+                        <option value="2nd">2nd</option>
+                        <option value="DNP" style="color:#f43f5e; font-weight:bold;">DNP</option>
+                    </select>
+                    <input type="number" class="stat-input inp-g" min="0" value="0" onchange="calcLiveScore()">
+                    <input type="number" class="stat-input inp-a" min="0" value="0">
+                    <input type="number" class="stat-input inp-s" min="0" value="0">
+                </div>
+            `).join('');
+        }
+
+        window.handleLegChange = function(selectEl) {
+            const row = selectEl.parentElement;
+            const isDNP = selectEl.value === 'DNP';
+            const inputs = row.querySelectorAll('input');
+            inputs.forEach(inp => {
+                inp.disabled = isDNP;
+                if(isDNP) inp.value = 0;
+            });
+            if(isDNP) window.calcLiveScore();
+        }
+
+        window.calcLiveScore = function() {
+            let scoreA = 0, scoreB = 0;
+            document.querySelectorAll('#rowsA .inp-g').forEach(i => scoreA += parseInt(i.value || 0));
+            document.querySelectorAll('#rowsB .inp-g').forEach(i => scoreB += parseInt(i.value || 0));
+            const fA = parseInt(document.getElementById('foulsA').value || 0);
+            const fB = parseInt(document.getElementById('foulsB').value || 0);
+            document.getElementById('sheetScoreA').innerText = Math.max(0, scoreA - fA);
+            document.getElementById('sheetScoreB').innerText = Math.max(0, scoreB - fB);
+        }
+
+        window.finalizeMatch = function() {
+            if(!confirm("End Match?")) return;
+            activeMatch.stats = []; 
+
+            const gather = (prefix, teamId) => {
+                let goals = 0;
+                document.querySelectorAll(`[data-prefix="${prefix}"]`).forEach(row => {
+                    const pid = row.getAttribute('data-pid');
+                    const leg = row.querySelector('.inp-leg').value;
+                    const g = parseInt(row.querySelector('.inp-g').value||0);
+                    const a = parseInt(row.querySelector('.inp-a').value||0);
+                    const s = parseInt(row.querySelector('.inp-s').value||0);
+                    goals += g;
+                    activeMatch.stats.push({ 
+                        playerId: String(pid), 
+                        teamId: String(teamId), 
+                        leg, g, a, s, 
+                        val: (g*PRICES.GOAL + a*PRICES.ASSIST + s*PRICES.SAVE) 
+                    });
+                });
+                return goals;
+            };
+            
+            const gA = gather('A', activeMatch.teamA); 
+            const gB = gather('B', activeMatch.teamB);
+            const fA = parseInt(document.getElementById('foulsA').value || 0);
+            const fB = parseInt(document.getElementById('foulsB').value || 0);
+            const sA = gA - fA; const sB = gB - fB;
+
+            let winnerId = null;
+            if(sA > sB) winnerId = activeMatch.teamA; else if(sB > sA) winnerId = activeMatch.teamB;
+
+            activeMatch.stats.sort((a,b) => b.val - a.val);
+            const motm = activeMatch.stats[0]?.val > 0 ? activeMatch.stats[0].playerId : null;
+            let mvp = null;
+            if(winnerId) {
+                const winningRosterIds = activeMatch.stats.filter(s => String(s.teamId) === String(winnerId)).map(s => s.playerId);
+                const winnerStats = activeMatch.stats.filter(s => winningRosterIds.includes(String(s.playerId)));
+                if(winnerStats.length > 0) mvp = winnerStats[0].playerId;
+            } else if(activeMatch.stats.length > 1) mvp = activeMatch.stats[1].playerId;
+
+            db.matches.push({ id: activeMatch.id, teamA: activeMatch.teamA, teamB: activeMatch.teamB, sA, sB, fA, fB, stats: activeMatch.stats, awards: { motm, mvp, winnerId } });
+            
+            const tA = db.teams.find(t=>t.id == activeMatch.teamA);
+            const tB = db.teams.find(t=>t.id == activeMatch.teamB);
+            logAction("Match Result", `${tA?.name} (${sA}) vs ${tB?.name} (${sB})`);
+
+            window.saveData();
+            window.cancelMatch();
+            window.switchTab('results');
+        }
+
+        window.cancelMatch = function() {
+            activeMatch = null;
+            document.getElementById('matchSheet').style.display = 'none';
+            document.getElementById('matchSetup').style.display = 'block';
+        }
+
+        window.editMatch = function(matchId) {
+            const m = db.matches.find(x => x.id === matchId);
+            if(!m) return;
+            logAction("Edit Match", `Started editing match: ${matchId}`);
+            db.matches = db.matches.filter(x => x.id !== matchId);
+            document.getElementById('setupTeamA').value = m.teamA;
+            document.getElementById('setupTeamB').value = m.teamB;
+            window.initMatchSheet();
+            activeMatch.id = m.id;
+            document.getElementById('foulsA').value = m.fA;
+            document.getElementById('foulsB').value = m.fB;
+            m.stats.forEach(s => {
+                const row = document.querySelector(`.stat-input-row[data-pid="${s.playerId}"]`);
+                if(row) {
+                    const legSelect = row.querySelector('.inp-leg');
+                    legSelect.value = s.leg;
+                    window.handleLegChange(legSelect);
+                    row.querySelector('.inp-g').value = s.g;
+                    row.querySelector('.inp-a').value = s.a;
+                    row.querySelector('.inp-s').value = s.s;
+                }
+            });
+            window.calcLiveScore();
+            window.switchTab('match');
+        }
+
+        window.renderResults = function() {
+            const div = document.getElementById('matchHistoryList');
+            div.innerHTML = db.matches.map(m => {
+                const tA = db.teams.find(t => t.id == m.teamA);
+                const tB = db.teams.find(t => t.id == m.teamB);
+                
+                const motmName = db.players.find(p => String(p.id) == String(m.awards.motm))?.name || '-';
+                const mvpName = db.players.find(p => String(p.id) == String(m.awards.mvp))?.name || '-';
+                
+                const getStatRows = (targetTeamId) => {
+                   return m.stats.filter(s => {
+                       const p = db.players.find(x => String(x.id) == String(s.playerId));
+                       const effectiveTeamId = s.teamId || (p ? p.teamId : null);
+                       return String(effectiveTeamId) === String(targetTeamId) && (s.g > 0 || s.a > 0 || s.s > 0);
+                   }).map(s => {
+                       const p = db.players.find(x => String(x.id) == String(s.playerId));
+                       const legLabel = s.leg && s.leg !== 'Full' ? `(${s.leg})` : '';
+                       return `<div><span class="player-link" onclick="openProfile('${s.playerId}')">${p?p.name:'Unknown'}</span> ${legLabel}: ${s.g}G / ${s.a}A / ${s.s}S</div>`;
+                   }).join('');
+                };
+
+                const statsA = getStatRows(m.teamA);
+                const statsB = getStatRows(m.teamB);
+
+                return `
+                <div class="card result-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:1.1rem; font-weight:800;">
+                        <span style="color:${tA.color}">${tA.name} <small style="color:#94a3b8; font-size:0.7rem;">(${m.fA} F)</small></span>
+                        <span style="font-size:1.5rem">${m.sA} - ${m.sB}</span>
+                        <span style="color:${tB.color}">${tB.name} <small style="color:#94a3b8; font-size:0.7rem;">(${m.fB} F)</small></span>
+                    </div>
+                    <div style="margin-top:0.5rem; display:flex; gap:1rem; font-size:0.8rem;">
+                        <span style="color:var(--gold)">MOTM: <span class="player-link" onclick="openProfile('${m.awards.motm}')">${motmName}</span></span>
+                        <span style="color:#94a3b8">MVP: <span class="player-link" onclick="openProfile('${m.awards.mvp}')">${mvpName}</span></span>
+                    </div>
+                    
+                    <details style="margin-top:0.5rem;">
+                        <summary style="cursor:pointer; color:var(--primary); font-size:0.8rem;">View Player Stats</summary>
+                        <div style="margin-top:0.5rem; font-size:0.8rem; color:#cbd5e1; display:flex; gap: 10px;">
+                            <div style="flex:1; text-align:right; border-right: 1px solid rgba(255,255,255,0.1); padding-right:10px;">${statsA || '<span style="color:#64748b">-</span>'}</div>
+                            <div style="flex:1; text-align:left; padding-left:10px;">${statsB || '<span style="color:#64748b">-</span>'}</div>
+                        </div>
+                    </details>
+                    
+                    <div class="result-actions admin-only">
+                         <button class="edit-result-btn" onclick="editMatch(${m.id})">EDIT MATCH</button>
+                    </div>
+                </div>`;
+            }).reverse().join('');
+        }
+
+        window.renderTeamLB = function() {
+            let stats = {};
+            db.teams.forEach(t => { stats[t.id] = { id: t.id, name: t.name, color: t.color, mp: 0, w: 0, d: 0, l: 0, gs: 0, gc: 0, pts: 0 }; });
+            db.matches.forEach(m => {
+                const tA = stats[m.teamA];
+                const tB = stats[m.teamB];
+                if(!tA || !tB) return;
+                tA.mp++; tB.mp++;
+                tA.gs += m.sA; tA.gc += m.sB;
+                tB.gs += m.sB; tB.gc += m.sA;
+                if(m.sA > m.sB) { tA.w++; tA.pts += 3; tB.l++; } 
+                else if(m.sB > m.sA) { tB.w++; tB.pts += 3; tA.l++; } 
+                else { tA.d++; tA.pts += 1; tB.d++; tB.pts += 1; }
+            });
+            const list = Object.values(stats).sort((a,b) => {
+                if(b.pts !== a.pts) return b.pts - a.pts; 
+                const gdA = a.gs - a.gc; const gdB = b.gs - b.gc;
+                if(gdB !== gdA) return gdB - gdA; 
+                return b.gs - a.gs;
+            });
+            document.getElementById('tbodyTeam').innerHTML = list.map((t, i) => {
+                const gd = t.gs - t.gc;
+                const gdDisplay = gd > 0 ? `+${gd}` : gd;
+                let rankClass = '';
+                let rankIcon = '';
+                if(i === 0) { rankClass = 'rank-row-1'; rankIcon = '<span class="rank-icon-1">👑</span>'; } 
+                else if(i === 1) { rankClass = 'rank-row-2'; rankIcon = '<span class="rank-icon-2">⚔️</span>'; } 
+                else if(i === 2) { rankClass = 'rank-row-3'; rankIcon = '<span class="rank-icon-3">🔥</span>'; }
+                return `<tr class="${rankClass}"><td>${rankIcon} #${i+1}</td><td style="color:${t.color}; font-weight:800;">${t.name}</td><td style="text-align:center">${t.mp}</td><td style="text-align:center">${t.w}</td><td style="text-align:center">${t.d}</td><td style="text-align:center">${t.l}</td><td style="text-align:center; color:${gd >= 0 ? 'var(--money)' : 'var(--accent)'}">${gdDisplay}</td><td style="text-align:right; font-weight:800; font-size:1.1rem;">${t.pts}</td></tr>`;
+            }).join('');
+        }
+
+        window.renderPlayerLB = function(sortBy) {
+            if(sortBy) lastSortBy = sortBy; else sortBy = lastSortBy;
+            const searchInput = document.getElementById('playerSearch').value.toLowerCase();
+            let agg = {};
+            db.matches.forEach(m => {
+                m.stats.forEach(s => {
+                    const pid = String(s.playerId);
+                    if(!agg[pid]) agg[pid] = { g:0, a:0, s:0, val:0, awards:0 };
+                    agg[pid].g += s.g; agg[pid].a += s.a; agg[pid].s += s.s; agg[pid].val += s.val;
+                });
+                const checkAward = (pid) => { if(!pid) return; const id = String(pid); if(!agg[id]) agg[id] = { g:0, a:0, s:0, val:0, awards:0 }; agg[id].awards += 1; }
+                checkAward(m.awards.motm); checkAward(m.awards.mvp);
+            });
+            let list = Object.keys(agg).map(pid => {
+                const p = db.players.find(x => String(x.id) == pid);
+                return { ...agg[pid], pid, name: p?.name, teamId: p?.teamId, awards: p?.awards }; 
+            });
+            if(searchInput) list = list.filter(p => p.name && p.name.toLowerCase().includes(searchInput));
+            list.sort((a,b) => {
+                if(sortBy === 'goals') return b.g - a.g;
+                if(sortBy === 'assists') return b.a - a.a;
+                if(sortBy === 'saves') return b.s - a.s;
+                return b.val - a.val;
+            });
+            document.getElementById('tbodyPlayer').innerHTML = list.map((p, i) => {
+                const team = db.teams.find(t => t.id == p.teamId);
+                let rankClass = '';
+                let rankIcon = '';
+                if(i === 0) { rankClass = 'rank-row-1'; rankIcon = '<span class="rank-icon-1">👑</span>'; }
+                else if(i === 1) { rankClass = 'rank-row-2'; rankIcon = '<span class="rank-icon-2">⚔️</span>'; }
+                else if(i === 2) { rankClass = 'rank-row-3'; rankIcon = '<span class="rank-icon-3">🔥</span>'; }
+                const awardsDisplay = p.awards > 0 ? `<span style="font-size:0.8rem; color:var(--rank-s); margin-left:5px;">🏆${p.awards}</span>` : '';
+                return `<tr class="${rankClass}"><td>${rankIcon} #${i+1}</td><td class="player-link" style="color:${team ? team.color : 'white'}; font-weight:800;" onclick="openProfile('${p.pid}')">${p.name || 'Unknown'} ${awardsDisplay}</td><td>${team ? team.name : '-'}</td><td>${p.g}/${p.a}/${p.s}</td><td class="money-val">$${p.val.toLocaleString('en-US')}</td></tr>`;
+            }).join('');
+        }
+
+        window.renderLogs = function() {
+            if(!db.logs) return;
+            const sortedLogs = [...db.logs].reverse();
+            document.getElementById('tbodyLogs').innerHTML = sortedLogs.map(l => `<tr class="log-row"><td class="log-time">${l.timestamp}</td><td class="log-admin">${l.adminEmail || 'Unknown'}</td><td class="log-action">${l.action}</td><td>${l.details}</td></tr>`).join('');
+        }
+    </script>
+</body>
+</html>
