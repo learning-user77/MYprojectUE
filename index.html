@@ -4263,7 +4263,7 @@
             }
         };
 
-        // Save match results (admin only) - now with proper revert for edits
+        // Save match results (admin only) - FIXED revert logic
         function saveMatchResults(matchdayId, matchId) {
             if (!isAdmin) return;
             // Get all player stats
@@ -4344,14 +4344,13 @@
             database.ref(`results/${resultId}`).once('value')
                 .then((snapshot) => {
                     const existingResult = snapshot.val();
-                    let operations = [];
                     
                     // If editing, we need to revert old stats first
                     if (existingResult) {
                         if (confirm('A result already exists for this match. Do you want to overwrite it?')) {
                             isEditingResults = true;
                             
-                            // Build revert operations from old result
+                            // Build revert operations from old result (using update with increment)
                             const revertOps = [];
                             
                             // Revert player stats
@@ -4359,18 +4358,24 @@
                                 const oldLegValue = stats.legs === 'full' ? 2 : (stats.legs === 'dnp' ? 0 : 1);
                                 const playerRef = database.ref(`registry/players/${playerId}`);
                                 
-                                revertOps.push(playerRef.child('goals').set(firebase.database.ServerValue.increment(-(stats.goals || 0))));
-                                revertOps.push(playerRef.child('assists').set(firebase.database.ServerValue.increment(-(stats.assists || 0))));
-                                revertOps.push(playerRef.child('saves').set(firebase.database.ServerValue.increment(-(stats.saves || 0))));
-                                revertOps.push(playerRef.child('legs').set(firebase.database.ServerValue.increment(-oldLegValue)));
+                                // Use update with increment to subtract old values
+                                const updates = {};
+                                if (stats.goals) updates[`goals`] = firebase.database.ServerValue.increment(-stats.goals);
+                                if (stats.assists) updates[`assists`] = firebase.database.ServerValue.increment(-stats.assists);
+                                if (stats.saves) updates[`saves`] = firebase.database.ServerValue.increment(-stats.saves);
+                                if (oldLegValue) updates[`legs`] = firebase.database.ServerValue.increment(-oldLegValue);
+                                
+                                if (Object.keys(updates).length > 0) {
+                                    revertOps.push(playerRef.update(updates));
+                                }
                             });
                             
                             // Revert awards
                             if (existingResult.mvp) {
-                                revertOps.push(database.ref(`registry/players/${existingResult.mvp}/awards`).set(firebase.database.ServerValue.increment(-1)));
+                                revertOps.push(database.ref(`registry/players/${existingResult.mvp}`).child('awards').set(firebase.database.ServerValue.increment(-1)));
                             }
                             if (existingResult.motm && existingResult.motm !== existingResult.mvp) {
-                                revertOps.push(database.ref(`registry/players/${existingResult.motm}/awards`).set(firebase.database.ServerValue.increment(-1)));
+                                revertOps.push(database.ref(`registry/players/${existingResult.motm}`).child('awards').set(firebase.database.ServerValue.increment(-1)));
                             }
                             
                             // Wait for revert operations to complete before applying new ones
@@ -4384,10 +4389,15 @@
                                     const legValue = stats.legs === 'full' ? 2 : (stats.legs === 'dnp' ? 0 : 1);
                                     const playerRef = database.ref(`registry/players/${playerId}`);
                                     
-                                    applyOps.push(playerRef.child('goals').set(firebase.database.ServerValue.increment(stats.goals)));
-                                    applyOps.push(playerRef.child('assists').set(firebase.database.ServerValue.increment(stats.assists)));
-                                    applyOps.push(playerRef.child('saves').set(firebase.database.ServerValue.increment(stats.saves)));
-                                    applyOps.push(playerRef.child('legs').set(firebase.database.ServerValue.increment(legValue)));
+                                    const updates = {};
+                                    if (stats.goals) updates[`goals`] = firebase.database.ServerValue.increment(stats.goals);
+                                    if (stats.assists) updates[`assists`] = firebase.database.ServerValue.increment(stats.assists);
+                                    if (stats.saves) updates[`saves`] = firebase.database.ServerValue.increment(stats.saves);
+                                    if (legValue) updates[`legs`] = firebase.database.ServerValue.increment(legValue);
+                                    
+                                    if (Object.keys(updates).length > 0) {
+                                        applyOps.push(playerRef.update(updates));
+                                    }
                                     
                                     if (playerId === mvpPlayer || playerId === motmPlayer) {
                                         applyOps.push(playerRef.child('awards').set(firebase.database.ServerValue.increment(1)));
@@ -4401,24 +4411,30 @@
                         }
                     } else {
                         // New result, just apply
-                        operations.push(database.ref(`results/${resultId}`).set(result));
-                        operations.push(database.ref(`fixtures/matchdays/${matchdayId}/matches/${matchId}/status`).set('completed'));
+                        const applyOps = [];
+                        applyOps.push(database.ref(`results/${resultId}`).set(result));
+                        applyOps.push(database.ref(`fixtures/matchdays/${matchdayId}/matches/${matchId}/status`).set('completed'));
                         
                         Object.entries(playerStats).forEach(([playerId, stats]) => {
                             const legValue = stats.legs === 'full' ? 2 : (stats.legs === 'dnp' ? 0 : 1);
                             const playerRef = database.ref(`registry/players/${playerId}`);
                             
-                            operations.push(playerRef.child('goals').set(firebase.database.ServerValue.increment(stats.goals)));
-                            operations.push(playerRef.child('assists').set(firebase.database.ServerValue.increment(stats.assists)));
-                            operations.push(playerRef.child('saves').set(firebase.database.ServerValue.increment(stats.saves)));
-                            operations.push(playerRef.child('legs').set(firebase.database.ServerValue.increment(legValue)));
+                            const updates = {};
+                            if (stats.goals) updates[`goals`] = firebase.database.ServerValue.increment(stats.goals);
+                            if (stats.assists) updates[`assists`] = firebase.database.ServerValue.increment(stats.assists);
+                            if (stats.saves) updates[`saves`] = firebase.database.ServerValue.increment(stats.saves);
+                            if (legValue) updates[`legs`] = firebase.database.ServerValue.increment(legValue);
+                            
+                            if (Object.keys(updates).length > 0) {
+                                applyOps.push(playerRef.update(updates));
+                            }
                             
                             if (playerId === mvpPlayer || playerId === motmPlayer) {
-                                operations.push(playerRef.child('awards').set(firebase.database.ServerValue.increment(1)));
+                                applyOps.push(playerRef.child('awards').set(firebase.database.ServerValue.increment(1)));
                             }
                         });
                         
-                        return Promise.all(operations);
+                        return Promise.all(applyOps);
                     }
                 })
                 .then(() => {
@@ -4486,7 +4502,7 @@
                 });
         }
 
-        // Load Results content (visible to everyone)
+        // Load Results content (visible to everyone) - Hide DNP players
         function loadResultsContent() {
             const contentArea = document.getElementById('contentArea');
             
@@ -4555,13 +4571,12 @@
                                             <h4 style="color: ${homeTeam.color}; text-shadow: 0 0 10px ${homeTeam.color};">${result.homeTeam} Players</h4>
                         `;
                         
-                        // Add home team player stats
+                        // Add home team player stats (filter out DNP)
                         Object.entries(result.playerStats || {})
-                            .filter(([_, stats]) => stats.team === 'home')
+                            .filter(([_, stats]) => stats.team === 'home' && stats.legs !== 'dnp')
                             .forEach(([playerId, stats]) => {
                                 const player = players[playerId] || { name: 'Unknown' };
-                                const legText = stats.legs === 'full' ? '2 Legs' : 
-                                              (stats.legs === 'dnp' ? 'DNP' : '1 Leg');
+                                const legText = stats.legs === 'full' ? '2 Legs' : '1 Leg';
                                 html += `
                                     <div style="display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid var(--border-color);">
                                         <span class="result-player-name" style="color: ${homeTeam.color}" onclick="showPlayerProfile('${playerId}')">${player.name}</span>
@@ -4576,13 +4591,12 @@
                                             <h4 style="color: ${awayTeam.color}; text-shadow: 0 0 10px ${awayTeam.color};">${result.awayTeam} Players</h4>
                         `;
                         
-                        // Add away team player stats
+                        // Add away team player stats (filter out DNP)
                         Object.entries(result.playerStats || {})
-                            .filter(([_, stats]) => stats.team === 'away')
+                            .filter(([_, stats]) => stats.team === 'away' && stats.legs !== 'dnp')
                             .forEach(([playerId, stats]) => {
                                 const player = players[playerId] || { name: 'Unknown' };
-                                const legText = stats.legs === 'full' ? '2 Legs' : 
-                                              (stats.legs === 'dnp' ? 'DNP' : '1 Leg');
+                                const legText = stats.legs === 'full' ? '2 Legs' : '1 Leg';
                                 html += `
                                     <div style="display: flex; justify-content: space-between; padding: 0.25rem 0; border-bottom: 1px solid var(--border-color);">
                                         <span class="result-player-name" style="color: ${awayTeam.color}" onclick="showPlayerProfile('${playerId}')">${player.name}</span>
