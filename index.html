@@ -2943,79 +2943,144 @@
                 });
         }
 
-        // Add single player (admin only)
-        function addPlayer() {
-            if (!isAdmin) return;
-            const name = document.getElementById('playerName').value;
-            const teamId = document.getElementById('playerTeam').value;
-            
-            if (!name) {
-                alert('Please enter a player name');
-                return;
-            }
-            
-            if (!teamId) {
-                alert('Please select a team');
-                return;
-            }
-            
-            const playerId = Date.now().toString();
-            const player = {
-                name: name,
-                teamId: teamId,
-                goals: 0,
-                assists: 0,
-                saves: 0,
-                legs: 0,
-                awards: 0,
-                hype: 0,
-                createdAt: Date.now(),
-                createdBy: currentUser?.email || 'admin'
-            };
-            
-            database.ref(`registry/players/${playerId}`).set(player)
-                .then(() => {
-                    logAction(`Added player: ${name}`, 'Registry');
-                    showSuccessMessage('Player added successfully!');
-                    document.getElementById('playerName').value = '';
-                    document.getElementById('playerTeam').value = '';
-                    loadRegistryContent();
-                })
-                .catch((error) => {
-                    alert('Error adding player: ' + error.message);
-                });
-        }
+        // Add single player (admin only) with duplicate check
+function addPlayer() {
+    if (!isAdmin) return;
+    const name = document.getElementById('playerName').value.trim();
+    const teamId = document.getElementById('playerTeam').value;
 
-        // Bulk add players (admin only)
-        function bulkAddPlayers() {
-            if (!isAdmin) return;
-            const namesText = document.getElementById('bulkPlayers').value;
-            const teamId = document.getElementById('bulkTeam').value;
-            
-            if (!namesText) {
-                alert('Please enter player names');
-                return;
+    if (!name) {
+        alert('Please enter a player name');
+        return;
+    }
+
+    if (!teamId) {
+        alert('Please select a team');
+        return;
+    }
+
+    // First, get all existing players to check for duplicates
+    database.ref('registry/players').once('value')
+        .then((snapshot) => {
+            const players = snapshot.val() || {};
+            const duplicate = Object.entries(players).find(([id, p]) => 
+                p.name.toLowerCase().trim() === name.toLowerCase()
+            );
+
+            if (duplicate) {
+                const [existingId, existingPlayer] = duplicate;
+                // Get team name for the duplicate player
+                return database.ref(`registry/teams/${existingPlayer.teamId}`).once('value')
+                    .then((teamSnap) => {
+                        const team = teamSnap.val();
+                        const teamName = team ? team.name : 'Unknown';
+                        alert(`Player "${name}" already exists in team "${teamName}". Cannot add duplicate.`);
+                        return Promise.reject('Duplicate player');
+                    });
+            } else {
+                // No duplicate, proceed to add
+                const playerId = Date.now().toString();
+                const player = {
+                    name: name,
+                    teamId: teamId,
+                    goals: 0,
+                    assists: 0,
+                    saves: 0,
+                    legs: 0,
+                    awards: 0,
+                    hype: 0,
+                    createdAt: Date.now(),
+                    createdBy: currentUser?.email || 'admin'
+                };
+                return database.ref(`registry/players/${playerId}`).set(player)
+                    .then(() => {
+                        logAction(`Added player: ${name}`, 'Registry');
+                        showSuccessMessage('Player added successfully!');
+                        document.getElementById('playerName').value = '';
+                        document.getElementById('playerTeam').value = '';
+                        loadRegistryContent();
+                    });
             }
-            
-            if (!teamId) {
-                alert('Please select a team');
-                return;
+        })
+        .catch((error) => {
+            if (error !== 'Duplicate player') {
+                alert('Error adding player: ' + error.message);
             }
-            
-            const names = namesText.split('\n').filter(name => name.trim() !== '');
-            
-            if (names.length === 0) {
-                alert('Please enter at least one player name');
-                return;
+        });
+}
+
+// Bulk add players (admin only) with duplicate check
+function bulkAddPlayers() {
+    if (!isAdmin) return;
+    const namesText = document.getElementById('bulkPlayers').value;
+    const teamId = document.getElementById('bulkTeam').value;
+
+    if (!namesText) {
+        alert('Please enter player names');
+        return;
+    }
+
+    if (!teamId) {
+        alert('Please select a team');
+        return;
+    }
+
+    const names = namesText.split('\n')
+        .map(name => name.trim())
+        .filter(name => name !== '');
+
+    if (names.length === 0) {
+        alert('Please enter at least one player name');
+        return;
+    }
+
+    // Load all existing players
+    database.ref('registry/players').once('value')
+        .then((snapshot) => {
+            const existingPlayers = snapshot.val() || {};
+            const duplicates = [];
+            const uniqueNames = [];
+
+            // Check each name against existing players
+            names.forEach(name => {
+                const duplicate = Object.entries(existingPlayers).find(([id, p]) => 
+                    p.name.toLowerCase().trim() === name.toLowerCase()
+                );
+                if (duplicate) {
+                    duplicates.push({ name, existing: duplicate[1] });
+                } else {
+                    uniqueNames.push(name);
+                }
+            });
+
+            if (duplicates.length > 0) {
+                // Build list of duplicates with team names
+                const teamPromises = duplicates.map(d => 
+                    database.ref(`registry/teams/${d.existing.teamId}`).once('value')
+                        .then(teamSnap => {
+                            const team = teamSnap.val();
+                            return `${d.name} (already in ${team ? team.name : 'Unknown'})`;
+                        })
+                );
+                return Promise.all(teamPromises).then(dupList => {
+                    alert('The following players already exist and were skipped:\n' + dupList.join('\n'));
+                    if (uniqueNames.length === 0) return Promise.reject('All duplicates');
+                    // Proceed with unique names only
+                    return uniqueNames;
+                });
+            } else {
+                return uniqueNames; // No duplicates, proceed
             }
-            
+        })
+        .then((namesToAdd) => {
+            if (!namesToAdd || namesToAdd.length === 0) return;
             const updates = {};
             const timestamp = Date.now();
-            
-            names.forEach(name => {
+
+            namesToAdd.forEach(name => {
                 const playerId = timestamp + Math.random().toString(36).substr(2, 9);
                 updates[`registry/players/${playerId}`] = {
-                    name: name.trim(),
+                    name: name,
                     teamId: teamId,
                     goals: 0,
                     assists: 0,
@@ -3027,20 +3092,23 @@
                     createdBy: currentUser?.email || 'admin'
                 };
             });
-            
-            database.ref().update(updates)
+
+            return database.ref().update(updates)
                 .then(() => {
-                    logAction(`Bulk added ${names.length} players`, 'Registry');
-                    showSuccessMessage(`${names.length} players added successfully!`);
+                    logAction(`Bulk added ${namesToAdd.length} players`, 'Registry');
+                    showSuccessMessage(`${namesToAdd.length} players added successfully!`);
                     document.getElementById('bulkPlayers').value = '';
                     document.getElementById('bulkTeam').value = '';
                     loadRegistryContent();
-                })
-                .catch((error) => {
-                    alert('Error adding players: ' + error.message);
                 });
-        }
-
+        })
+        .catch((error) => {
+            if (error !== 'All duplicates') {
+                alert('Error adding players: ' + error.message);
+            }
+        });
+}
+// ----
         // Edit team (admin only)
         function editTeam(teamId) {
             if (!isAdmin) return;
