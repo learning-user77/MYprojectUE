@@ -2431,6 +2431,7 @@
         let isEditingResults = false;
         let lastHypeTime = {}; // Track last hype time per player
         let transferHistory = {}; // Track player transfers
+        let isSavingResults = false; // Prevent double submission
 
         // Format number to compact (e.g., 1.5M, 2.3B)
         function formatCompactNumber(num) {
@@ -3797,8 +3798,8 @@ function bulkAddPlayers() {
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             ${status !== 'completed' ? `
-                                                <button class="btn-success btn-small" onclick="enterResults('${matchdayId}', '${matchId}')">
-                                                    <i class="fas fa-chart-line"></i> Enter Results
+                                                <button class="btn btn-success" onclick="saveMatchResults('${matchdayId}', '${matchId}', this)">
+                                                    <i class="fas fa-check"></i> Finalize Match
                                                 </button>
                                             ` : `
                                                 <button class="btn-edit btn-small" onclick="editResults('${matchdayId}', '${matchId}')">
@@ -4331,9 +4332,17 @@ function bulkAddPlayers() {
             }
         };
 
-        // Save match results (admin only) - FIXED revert logic
-        function saveMatchResults(matchdayId, matchId) {
+        // Save match results (admin only) - FIXED revert logic + double-click guard
+        function saveMatchResults(matchdayId, matchId, button) {
             if (!isAdmin) return;
+            // 🔒 Prevent double submission
+            if (isSavingResults) {
+                alert('Please wait – saving is already in progress.');
+                return;
+            }
+            isSavingResults = true;
+            if (button) button.disabled = true;
+
             // Get all player stats
             const playerStats = {};
             
@@ -4365,6 +4374,8 @@ function bulkAddPlayers() {
             
             if (!mvpPlayer || !motmPlayer) {
                 alert('Please select both MVP and MOTM');
+                isSavingResults = false;
+                if (button) button.disabled = false;
                 return;
             }
             
@@ -4514,6 +4525,10 @@ function bulkAddPlayers() {
                     if (error !== 'Edit cancelled') {
                         alert('Error saving match results: ' + error.message);
                     }
+                })
+                .finally(() => {
+                    isSavingResults = false;
+                    // Button will be removed by loadFixturesContent, so no need to re-enable
                 });
         }
 
@@ -4567,6 +4582,67 @@ function bulkAddPlayers() {
                 })
                 .catch((error) => {
                     alert('Error loading results: ' + error.message);
+                });
+        }
+
+        // Delete a result and revert all stats (admin only)
+        function deleteResult(resultId) {
+            if (!isAdmin) return;
+            if (!confirm('Delete this result? All player stats will be reverted. This cannot be undone.')) return;
+
+            database.ref(`results/${resultId}`).once('value')
+                .then((snapshot) => {
+                    const result = snapshot.val();
+                    if (!result) throw new Error('Result not found');
+
+                    const ops = [];
+
+                    // Revert player stats
+                    Object.entries(result.playerStats || {}).forEach(([playerId, stats]) => {
+                        const legValue = stats.legs === 'full' ? 2 : (stats.legs === 'dnp' ? 0 : 1);
+                        const updates = {};
+                        if (stats.goals) updates.goals = firebase.database.ServerValue.increment(-stats.goals);
+                        if (stats.assists) updates.assists = firebase.database.ServerValue.increment(-stats.assists);
+                        if (stats.saves) updates.saves = firebase.database.ServerValue.increment(-stats.saves);
+                        if (legValue) updates.legs = firebase.database.ServerValue.increment(-legValue);
+                        if (Object.keys(updates).length) {
+                            ops.push(database.ref(`registry/players/${playerId}`).update(updates));
+                        }
+                    });
+
+                    // Revert awards
+                    if (result.mvp) {
+                        ops.push(database.ref(`registry/players/${result.mvp}/awards`).set(firebase.database.ServerValue.increment(-1)));
+                    }
+                    if (result.motm && result.motm !== result.mvp) {
+                        ops.push(database.ref(`registry/players/${result.motm}/awards`).set(firebase.database.ServerValue.increment(-1)));
+                    }
+
+                    // Delete the result
+                    ops.push(database.ref(`results/${resultId}`).remove());
+
+                    // Optionally reset match status to 'scheduled' if the match still exists
+                    const [matchdayId, matchId] = resultId.split('_');
+                    if (matchdayId && matchId) {
+                        ops.push(
+                            database.ref(`fixtures/matchdays/${matchdayId}/matches/${matchId}`).once('value')
+                                .then(matchSnap => {
+                                    if (matchSnap.exists()) {
+                                        return database.ref(`fixtures/matchdays/${matchdayId}/matches/${matchId}/status`).set('scheduled');
+                                    }
+                                })
+                        );
+                    }
+
+                    return Promise.all(ops);
+                })
+                .then(() => {
+                    logAction(`Deleted result: ${resultId}`, 'Results');
+                    showSuccessMessage('Result deleted and stats reverted.');
+                    loadResultsContent(); // refresh view
+                })
+                .catch((error) => {
+                    alert('Error deleting result: ' + error.message);
                 });
         }
 
@@ -4630,6 +4706,7 @@ function bulkAddPlayers() {
                                         <button class="expand-btn" onclick="toggleResultDetails('${resultId}')">
                                             <i class="fas fa-chevron-down"></i> View Details
                                         </button>
+                                        ${isAdmin ? `<button class="btn-delete btn-small" onclick="deleteResult('${resultId}')"><i class="fas fa-trash"></i></button>` : ''}
                                     </div>
                                 </div>
                                 
