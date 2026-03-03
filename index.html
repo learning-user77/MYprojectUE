@@ -508,6 +508,7 @@
         .app {
             display: flex;
             min-height: 100vh;
+            transition: all 0.3s;
         }
 
         /* Sidebar */
@@ -520,8 +521,60 @@
             height: 100vh;
             overflow-y: auto;
             border-right: 3px solid var(--accent-blue);
-            transition: width 0.3s;
+            transition: width 0.3s, padding 0.3s;
             box-shadow: 5px 0 15px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        /* Sidebar collapsed state */
+        .app.sidebar-collapsed .sidebar {
+            width: 80px;
+            padding: 2rem 0.5rem;
+        }
+
+        .app.sidebar-collapsed .sidebar .logo-text,
+        .app.sidebar-collapsed .sidebar .nav-link span,
+        .app.sidebar-collapsed .sidebar .ego-quote,
+        .app.sidebar-collapsed .sidebar .submenu,
+        .app.sidebar-collapsed .sidebar .admin-badge {
+            display: none;
+        }
+
+        .app.sidebar-collapsed .sidebar .nav-link {
+            justify-content: center;
+            padding: 0.75rem 0;
+        }
+
+        .app.sidebar-collapsed .sidebar .nav-link i {
+            margin: 0;
+        }
+
+        .app.sidebar-collapsed .main-content {
+            margin-left: 80px;
+        }
+
+        /* Sidebar toggle button */
+        .sidebar-toggle {
+            position: absolute;
+            top: 20px;
+            right: -12px;
+            width: 24px;
+            height: 24px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 0 10px var(--neon-blue);
+            z-index: 101;
+            transition: all 0.3s;
+        }
+
+        .sidebar-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--neon-blue);
         }
 
         .logo {
@@ -530,6 +583,7 @@
             gap: 10px;
             margin-bottom: 2rem;
             padding: 0 0.5rem;
+            position: relative;
         }
 
         .logo-icon {
@@ -551,6 +605,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-shadow: 0 0 20px var(--neon-blue);
+            white-space: nowrap;
         }
 
         .logo-text span {
@@ -682,6 +737,7 @@
             flex: 1;
             margin-left: 260px;
             padding: 2rem;
+            transition: margin-left 0.3s;
         }
 
         /* Header */
@@ -1218,6 +1274,7 @@
         .result-badges {
             display: flex;
             gap: 1rem;
+            align-items: center;
         }
 
         .expand-btn {
@@ -2299,6 +2356,9 @@
                     BLUE LOCK
                     <span>MANAGER</span>
                 </div>
+                <div class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-chevron-left"></i>
+                </div>
             </div>
             
             <ul class="nav-menu">
@@ -2616,6 +2676,21 @@
             event.preventDefault();
             const submenu = document.getElementById('playerLBSubmenu');
             submenu.classList.toggle('active');
+        }
+
+        // Toggle sidebar collapsed state
+        function toggleSidebar() {
+            const app = document.querySelector('.app');
+            app.classList.toggle('sidebar-collapsed');
+            // Change icon direction
+            const icon = document.querySelector('.sidebar-toggle i');
+            if (icon.classList.contains('fa-chevron-left')) {
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+            } else {
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+            }
         }
 
         // Show content based on selection
@@ -4372,10 +4447,14 @@
                             
                             // Revert awards
                             if (existingResult.mvp) {
-                                revertOps.push(database.ref(`registry/players/${existingResult.mvp}`).child('awards').set(firebase.database.ServerValue.increment(-1)));
+                                revertOps.push(database.ref(`registry/players/${existingResult.mvp}`).update({
+                                    awards: firebase.database.ServerValue.increment(-1)
+                                }));
                             }
                             if (existingResult.motm && existingResult.motm !== existingResult.mvp) {
-                                revertOps.push(database.ref(`registry/players/${existingResult.motm}`).child('awards').set(firebase.database.ServerValue.increment(-1)));
+                                revertOps.push(database.ref(`registry/players/${existingResult.motm}`).update({
+                                    awards: firebase.database.ServerValue.increment(-1)
+                                }));
                             }
                             
                             // Wait for revert operations to complete before applying new ones
@@ -4400,7 +4479,9 @@
                                     }
                                     
                                     if (playerId === mvpPlayer || playerId === motmPlayer) {
-                                        applyOps.push(playerRef.child('awards').set(firebase.database.ServerValue.increment(1)));
+                                        applyOps.push(playerRef.update({
+                                            awards: firebase.database.ServerValue.increment(1)
+                                        }));
                                     }
                                 });
                                 
@@ -4430,7 +4511,9 @@
                             }
                             
                             if (playerId === mvpPlayer || playerId === motmPlayer) {
-                                applyOps.push(playerRef.child('awards').set(firebase.database.ServerValue.increment(1)));
+                                applyOps.push(playerRef.update({
+                                    awards: firebase.database.ServerValue.increment(1)
+                                }));
                             }
                         });
                         
@@ -4502,6 +4585,67 @@
                 });
         }
 
+        // Delete a result (admin only) - revert all stats and remove result
+        function deleteResult(resultId) {
+            if (!isAdmin) return;
+            if (!confirm('Are you sure you want to delete this result? All player stats and awards from this match will be reverted.')) return;
+            
+            database.ref(`results/${resultId}`).once('value')
+                .then((snapshot) => {
+                    const result = snapshot.val();
+                    if (!result) {
+                        alert('Result not found');
+                        return;
+                    }
+                    
+                    const revertOps = [];
+                    
+                    // Revert player stats
+                    Object.entries(result.playerStats || {}).forEach(([playerId, stats]) => {
+                        const legValue = stats.legs === 'full' ? 2 : (stats.legs === 'dnp' ? 0 : 1);
+                        const playerRef = database.ref(`registry/players/${playerId}`);
+                        
+                        const updates = {};
+                        if (stats.goals) updates.goals = firebase.database.ServerValue.increment(-stats.goals);
+                        if (stats.assists) updates.assists = firebase.database.ServerValue.increment(-stats.assists);
+                        if (stats.saves) updates.saves = firebase.database.ServerValue.increment(-stats.saves);
+                        if (legValue) updates.legs = firebase.database.ServerValue.increment(-legValue);
+                        
+                        if (Object.keys(updates).length > 0) {
+                            revertOps.push(playerRef.update(updates));
+                        }
+                    });
+                    
+                    // Revert awards
+                    if (result.mvp) {
+                        revertOps.push(database.ref(`registry/players/${result.mvp}`).update({
+                            awards: firebase.database.ServerValue.increment(-1)
+                        }));
+                    }
+                    if (result.motm && result.motm !== result.mvp) {
+                        revertOps.push(database.ref(`registry/players/${result.motm}`).update({
+                            awards: firebase.database.ServerValue.increment(-1)
+                        }));
+                    }
+                    
+                    // Update match status back to scheduled
+                    revertOps.push(database.ref(`fixtures/matchdays/${result.matchdayId}/matches/${result.matchId}/status`).set('scheduled'));
+                    
+                    // Remove the result itself
+                    revertOps.push(database.ref(`results/${resultId}`).remove());
+                    
+                    return Promise.all(revertOps);
+                })
+                .then(() => {
+                    logAction(`Deleted result: ${resultId}`, 'Results');
+                    showSuccessMessage('Result deleted and stats reverted!');
+                    loadResultsContent(); // Reload results view
+                })
+                .catch((error) => {
+                    alert('Error deleting result: ' + error.message);
+                });
+        }
+
         // Load Results content (visible to everyone) - Hide DNP players
         function loadResultsContent() {
             const contentArea = document.getElementById('contentArea');
@@ -4562,6 +4706,7 @@
                                         <button class="expand-btn" onclick="toggleResultDetails('${resultId}')">
                                             <i class="fas fa-chevron-down"></i> View Details
                                         </button>
+                                        ${isAdmin ? `<button class="btn-delete btn-small" onclick="deleteResult('${resultId}')"><i class="fas fa-trash"></i></button>` : ''}
                                     </div>
                                 </div>
                                 
