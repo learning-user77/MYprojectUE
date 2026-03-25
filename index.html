@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLUE LOCK - Football League Manager</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Anime.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="light">
+    <!-- Loading Spinner -->
+    <div class="loading-spinner" id="loadingSpinner">
+        <div class="spinner"></div>
+        <p>Loading Blue Lock Manager...</p>
+    </div>
+
+    <!-- Theme Toggle -->
+    <div class="theme-toggle">
+        <button class="active" onclick="setTheme('light', this)"><i class="fas fa-sun"></i> Light</button>
+        <button onclick="setTheme('dark', this)"><i class="fas fa-moon"></i> Dark</button>
+    </div>
+
+    <!-- Logout Button -->
+    <button class="logout-btn hidden" id="logoutBtn" onclick="logout()">
+        <i class="fas fa-sign-out-alt"></i> Logout
+    </button>
+
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚽ BLUE LOCK</h2>
+                <p>Admin Login</p>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" placeholder="admin@bluelock.com">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="••••••••">
+            </div>
+            <button class="btn" onclick="login()">Login as Admin</button>
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div class="app" id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">⚽</span>
+                <div class="logo-text">
+                    BLUE LOCK
+                    <span>MANAGER</span>
+                </div>
+                <div class="sidebar-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-chevron-left"></i>
+                </div>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a class="nav-link" onclick="showContent('guide', event)">
+                        <i>📘</i>
+                        <span>1. Guide</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="showContent('registry', event)">
+                        <i>📋</i>
+                        <span>2. Registry</span>
+                        <span class="admin-badge" id="registryBadge" style="display: none;">Admin</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="showContent('fixtures', event)">
+                        <i>📅</i>
+                        <span>3. Fixtures</span>
+                        <span class="admin-badge" id="fixturesBadge" style="display: none;">Admin</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="showContent('results', event)">
+                        <i>✅</i>
+                        <span>4. Results</span>
+                        <span class="admin-badge" id="resultsBadge" style="display: none;">Admin</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="showContent('team-lb', event)">
+                        <i>🏆</i>
+                        <span>5. Team LB</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="toggleSubmenu(event)">
+                        <i>⭐</i>
+                        <span>6. Player LB</span>
+                        <span style="margin-left: auto;">▼</span>
+                    </a>
+                    <ul class="submenu" id="playerLBSubmenu">
+                        <li class="submenu-item"><a class="submenu-link" onclick="showContent('most-goals', event)">6.1 Most Goals</a></li>
+                        <li class="submenu-item"><a class="submenu-link" onclick="showContent('most-assists', event)">6.2 Most Assists</a></li>
+                        <li class="submenu-item"><a class="submenu-link" onclick="showContent('most-saves', event)">6.3 Most Saves</a></li>
+                        <li class="submenu-item"><a class="submenu-link" onclick="showContent('most-awards', event)">6.4 Most Awards</a></li>
+                        <li class="submenu-item"><a class="submenu-link" onclick="showContent('most-valued', event)">6.5 Most Valued</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" onclick="showContent('logs', event)">
+                        <i>📊</i>
+                        <span>7. Logs</span>
+                        <span class="admin-badge" id="logsBadge" style="display: none;">Admin</span>
+                    </a>
+                </li>
+                <li class="nav-item" id="othersNavItem" style="display: none;">
+                    <a class="nav-link" onclick="showContent('others', event)">
+                        <i>⚙️</i>
+                        <span>8. Others</span>
+                        <span class="admin-badge">Admin</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="ego-quote">
+                <p>"The only one who can beat me is me."</p>
+                <small>- Jinpachi Ego</small>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header" id="loginHeader" onclick="showLoginModal()">
+                <div class="page-title">
+                    <h1 id="pageTitle">Guide</h1>
+                </div>
+                <div class="user-profile">
+                    <div class="user-info">
+                        <div class="user-name" id="userName">Visitor</div>
+                        <div class="user-role" id="userRole">Click to Login</div>
+                    </div>
+                    <div class="user-avatar" id="userAvatar">V</div>
+                </div>
+            </header>
+            <div class="content-area" id="contentArea">
+                <div class="content-placeholder">
+                    <h2>Welcome to Blue Lock Manager</h2>
+                    <p>Select a section from the sidebar to get started.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom Script -->
+    <script src="script.js"></script>
+</body>
+</html>
